@@ -60,9 +60,11 @@ MSSQL_PASSWORD=haslo
 
 NTFY_SERVER=https://ntfy.sh
 NTFY_TOPIC=moja-nazwa-topic
+SUPERVISOR_TOPIC=supervisor
 ```
 
 W aplikacji ntfy zasubskrybuj dokładnie ten sam topic, który wpisano w `NTFY_TOPIC`.
+Supervisor powinien zasubskrybować topic wpisany w `SUPERVISOR_TOPIC`.
 
 ### 4. Przygotuj pliki projektu
 

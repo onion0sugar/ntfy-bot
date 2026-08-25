@@ -45,6 +45,7 @@ def load_config(env_file: str | None = None) -> SimpleNamespace:
         ntfy_title=_env("NTFY_TITLE", "Nowe zamówienie"),
         ntfy_priority=_env("NTFY_PRIORITY", "default"),
         ntfy_tags=_env("NTFY_TAGS", "package"),
+        supervisor_topic=_env("SUPERVISOR_TOPIC", required=True),
         users_file=_env("USERS_FILE", "users.txt"),
         # Zachowanie
         poll_interval=max(1, int(_env("POLL_INTERVAL", "10") or "10")),

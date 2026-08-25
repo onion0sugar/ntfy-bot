@@ -92,27 +92,32 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                             ready_users = top_finished_users(state)
                             for login in ready_users:
                                 messages.append((f"{login}-rdy", DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania"))
+                            messages.append((cfg.supervisor_topic, DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania"))
                             logger.info("Ready order %s; recipients: %s", row.number, ", ".join(sorted(ready_users)) or "none")
 
                 # Gotowe do wydania i typ 22 in_progress mają pierwszeństwo nad nowymi.
                 busy = busy7 | busy22 | ready_users
                 if new_order:
                     _order_id, number = new_order
-                    order_key = (_order_id, number)
-                    announce = (
-                        order_key != last_new_order
-                        or cfg.announce_interval == 0
-                        or now - last_new_announcement >= cfg.announce_interval
-                    )
-                    if announce:
-                        last_new_order = order_key
-                        last_new_announcement = now
-                        for login in users:
-                            if login not in busy:
-                                messages.append((f"{login}-new", DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie"))
-                        logger.info("New order %s; free recipients: %d", number, sum(login not in busy for login in users))
+                    if messages:
+                        logger.info("New order %s skipped because a ready-order notification has priority", number)
                     else:
-                        logger.info("New order %s; notification skipped (announce interval)", number)
+                        order_key = (_order_id, number)
+                        announce = (
+                            order_key != last_new_order
+                            or cfg.announce_interval == 0
+                            or now - last_new_announcement >= cfg.announce_interval
+                        )
+                        if announce:
+                            last_new_order = order_key
+                            last_new_announcement = now
+                            messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie"))
+                            for login in users:
+                                if login not in busy:
+                                    messages.append((f"{login}-new", DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie"))
+                            logger.info("New order %s; free recipients: %d plus supervisor", number, sum(login not in busy for login in users))
+                        else:
+                            logger.info("New order %s; notification skipped (announce interval)", number)
                 else:
                     last_new_order = None
                     logger.info("Query OK — no new orders")

@@ -10,6 +10,7 @@ REQUIRED = {
     "MSSQL_USERNAME": "serwiskop-ro",
     "MSSQL_PASSWORD": "haslo",
     "NTFY_TOPIC": "test-topic",
+    "SUPERVISOR_TOPIC": "supervisor-topic",
 }
 
 
