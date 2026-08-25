@@ -103,3 +103,24 @@ python main.py
 Zatrzymanie programu: `Ctrl+C`.
 
 Po każdej zmianie w `.env`, `users.txt` lub plikach `.sql` uruchom program ponownie.
+
+## Uruchomienie bota i ntfy w Dockerze
+
+Na serwerze przygotuj pliki i uruchom oba kontenery:
+
+```bash
+cp users.txt.example users.txt
+nano .env
+docker compose up -d --build
+```
+
+Sprawdzenie działania:
+
+```bash
+docker compose ps
+docker compose logs -f bot
+```
+
+Bot łączy się z ntfy wewnętrznie przez `http://ntfy:80`, a telefon korzysta
+z adresu ustawionego w `NTFY_BASE_URL` w `docker-compose.yml`. Dane ntfy są w
+`ntfy-data`, a lokalna baza stanu bota w `bot-data`.

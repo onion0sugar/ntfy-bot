@@ -48,6 +48,7 @@ def load_config(env_file: str | None = None) -> SimpleNamespace:
         supervisor_topic=_env("SUPERVISOR_TOPIC", required=True),
         test_topic=_env("TEST_TOPIC", ""),
         users_file=_env("USERS_FILE", "users.txt"),
+        state_file=_env("STATE_FILE", "state.db"),
         # Zachowanie
         poll_interval=max(1, int(_env("POLL_INTERVAL", "10") or "10")),
         # Co ile sekund powtarzać powiadomienie na własnym zegarze, dopóki
