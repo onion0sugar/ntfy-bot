@@ -10,9 +10,9 @@ import time
 from types import SimpleNamespace
 
 from config import ConfigError, load_config
-from db import BUSY_QUERY_FILE, COURIER_QUERY_FILE, DbError, connect_db, fetch_busy_users, fetch_courier_rows, get_next_order, load_query
+from db import BUSY_QUERY_FILE, COURIER_QUERY_FILE, READY_USERS_QUERY_FILE, DbError, connect_db, fetch_busy_users, fetch_courier_rows, fetch_top_ready_user, get_next_order, load_query
 from ntfy import Ntfy, NtfyError
-from state import courier_changed, open_state, save_finished_order, top_finished_users
+from state import courier_changed, open_state, save_finished_order
 from users import load_users
 
 logger = logging.getLogger("bot")
@@ -48,6 +48,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
     query = load_query()
     busy_query = load_query(BUSY_QUERY_FILE)
     courier_query = load_query(COURIER_QUERY_FILE)
+    ready_users_query = load_query(READY_USERS_QUERY_FILE)
     users = load_users(cfg.users_file)
     state = open_state(cfg.state_file)
     ntfy = Ntfy(cfg)
@@ -79,6 +80,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 ready_users: set[str] = set()
                 busy22: set[str] = set()
                 messages: list[tuple[str, str, str, str]] = []
+                ready_numbers: list[str] = []
                 # Najpierw zapisz wszystkie zakończone zamówienia typu 7 z tego pollingu.
                 for row in courier_rows:
                     if row.document_type == "7" and row.status == "end" and row.doc_id is not None and row.user_name and row.packaged_position_count is not None:
@@ -90,11 +92,17 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                     if row.doc_id is not None:
                         changed = courier_changed(state, row.doc_id, row.courier_id, row.status, row.user_name)
                         if changed and row.document_type == "22" and row.courier_id == str(cfg.courier_id) and row.status != "end":
-                            ready_users = top_finished_users(state)
-                            for login in ready_users:
-                                messages.append((login, DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania", "max"))
-                            messages.append((cfg.supervisor_topic, DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania", "max"))
-                            logger.info("Ready order %s; recipients: %s", row.number, ", ".join(sorted(ready_users)) or "none")
+                            ready_numbers.append(row.number)
+
+                if ready_numbers:
+                    with db.cursor() as cursor:
+                        for number in ready_numbers:
+                            matching_users = fetch_top_ready_user(cursor, ready_users_query, number)
+                            ready_users.update(matching_users)
+                            for login in matching_users:
+                                messages.append((login, DEFAULT_READY_TEXT.format(number), "Gotowe do wydania", "max"))
+                            messages.append((cfg.supervisor_topic, DEFAULT_READY_TEXT.format(number), "Gotowe do wydania", "max"))
+                            logger.info("Ready order %s; recipients: %s", number, ", ".join(sorted(matching_users)) or "none")
 
                 # Gotowe do wydania i typ 22 in_progress mają pierwszeństwo nad nowymi.
                 busy = busy7 | busy22 | ready_users
@@ -156,6 +164,7 @@ def test_db(cfg: SimpleNamespace) -> int:
         load_query()
         load_query(BUSY_QUERY_FILE)
         load_query(COURIER_QUERY_FILE)
+        load_query(READY_USERS_QUERY_FILE)
         load_users(cfg.users_file)
     except Exception as exc:
         logger.error("DB test FAILED: %s", exc)

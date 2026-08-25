@@ -43,3 +43,4 @@ services:
       - ./query.sql:/app/query.sql:ro
       - ./query_busy.sql:/app/query_busy.sql:ro
       - ./query22.sql:/app/query22.sql:ro
+      - ./query22_users.sql:/app/query22_users.sql:ro

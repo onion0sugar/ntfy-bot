@@ -22,6 +22,7 @@ logger = logging.getLogger("db")
 QUERY_FILE = "query.sql"
 BUSY_QUERY_FILE = "query_busy.sql"
 COURIER_QUERY_FILE = "query22.sql"
+READY_USERS_QUERY_FILE = "query22_users.sql"
 
 
 class DbError(Exception):
@@ -139,9 +140,9 @@ class CourierRow:
     packaged_position_count: int | None
 
 
-def fetch_column_rows(cursor, query: str, required: tuple[str, ...]) -> list[dict[str, object]]:
+def fetch_column_rows(cursor, query: str, required: tuple[str, ...], params: tuple[object, ...] = ()) -> list[dict[str, object]]:
     try:
-        cursor.execute(query)
+        cursor.execute(query, params) if params else cursor.execute(query)
         description = cursor.description or []
         names = [str(col[0]).strip().lower() for col in description]
         indices = {name: names.index(name) for name in required if name in names}
@@ -157,6 +158,10 @@ def fetch_column_rows(cursor, query: str, required: tuple[str, ...]) -> list[dic
 
 def fetch_busy_users(cursor, query: str) -> set[str]:
     return {str(row["username"]).strip() for row in fetch_column_rows(cursor, query, ("username",)) if row["username"]}
+
+
+def fetch_top_ready_user(cursor, query: str, original_number: str) -> set[str]:
+    return {str(row["username"]).strip() for row in fetch_column_rows(cursor, query, ("username", "packagedpositioncount"), (original_number,)) if row["username"]}
 
 
 def fetch_courier_rows(cursor, query: str) -> list[CourierRow]:
