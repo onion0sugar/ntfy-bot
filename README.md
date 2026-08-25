@@ -90,9 +90,11 @@ zamówieniu nie jest wysyłane. Lista z `users.txt` jest wczytywana tylko przy s
 ```bash
 python main.py --test-db
 python main.py --test-ntfy
+python main.py --test-new
+python main.py --test-ready
 ```
 
-Jeśli oba testy zakończą się poprawnie, uruchom bota:
+Jeśli testy zakończą się poprawnie, uruchom bota:
 
 ```bash
 python main.py
