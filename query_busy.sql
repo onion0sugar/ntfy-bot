@@ -2,7 +2,10 @@
 SELECT DISTINCT COALESCE(CU.UserName, CONVERT(nvarchar(255), DD.ModifiedBy)) AS UserName
 FROM [SerwisKop_Magazyn].[Document].[Documents] DD
 LEFT JOIN Core.Users CU ON CU.Id = TRY_CONVERT(int, DD.ModifiedBy)
-WHERE DD.DocumentType = 7
+LEFT JOIN [SerwisKop_Magazyn].[Document].[CustomerOrderDocumentConfigurations] CONF
+  ON CONF.Id = DD.CustomerOrderDocumentConfigurationId
+WHERE DD.DateCreatedUtc >= DATEADD(DAY, -14, GETUTCDATE())
+  AND DD.DocumentType IN (7, 22)
   AND DD.SubType = 50
-  AND DD.DocumentStatusText = 'in_progress'
-  AND DD.DateCreatedUtc >= '2026-08-01';
+  AND (CONF.CourierId = 13 AND DD.DocumentStatusText = 'in_progress')
+

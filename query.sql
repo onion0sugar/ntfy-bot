@@ -17,8 +17,8 @@
 -- ============================================================================
 
 SELECT TOP(1)OriginalNumber
-  FROM [SerwisKop_Magazyn].[Document].[Documents]
+  FROM [SerwisKop_Magazyn].[Document].[Documents] DD
   WHERE DocumentType = 7
-  AND DateCreatedUtc >= '2026-06-01'
+  AND DD.DateCreatedUtc >= DATEADD(DAY, -14, GETUTCDATE())
   AND DocumentStatusText = 'new'
   AND SubType = 50

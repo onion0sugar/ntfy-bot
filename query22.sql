@@ -11,4 +11,5 @@ LEFT JOIN [SerwisKop_Magazyn].[Document].[CustomerOrderDocumentConfigurations] C
 LEFT JOIN Core.Users CU ON CU.Id = TRY_CONVERT(int, DD.ModifiedBy)
 WHERE DD.DocumentType = 22
   AND DD.SubType = 50
-  AND DD.DateCreatedUtc >= '2026-08-01';
+  AND DD.DateCreatedUtc >= DATEADD(DAY, -14, GETUTCDATE())
+
