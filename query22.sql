@@ -12,6 +12,6 @@ LEFT JOIN [SerwisKop_Magazyn].[Document].[CustomerOrderDocumentConfigurations] C
   ON CONF.Id = DD.CustomerOrderDocumentConfigurationId
 LEFT JOIN Core.Users CU ON CU.Id = TRY_CONVERT(int, DD.ModifiedBy)
 LEFT JOIN [SerwisKop_Magazyn].[Package].[PackageStats] PS ON PS.DocumentId = DD.Id
-WHERE DD.DateCreatedUtc >= DATEADD(DAY, -14, GETUTCDATE())
+WHERE DD.DateCreatedUtc >= DATEADD(DAY, -60, GETUTCDATE())
   AND DD.SubType = 50
   AND DD.DocumentType IN (22, 7)

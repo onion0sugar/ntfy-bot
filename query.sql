@@ -19,6 +19,6 @@
 SELECT TOP(1) DD.Id, DD.OriginalNumber
   FROM [SerwisKop_Magazyn].[Document].[Documents] DD
   WHERE DocumentType = 7
-  AND DD.DateCreatedUtc >= DATEADD(DAY, -14, GETUTCDATE())
+  AND DD.DateCreatedUtc >= DATEADD(DAY, -60, GETUTCDATE())
   AND DocumentStatusText = 'new'
   AND SubType = 50
