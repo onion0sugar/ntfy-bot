@@ -46,11 +46,13 @@ class Ntfy:
             raise NtfyError("NTFY_TOPIC nie może zawierać spacji")
         self._cfg = cfg
 
-    async def publish_to(self, topic: str, message: str, title: str | None = None) -> None:
+    async def publish_to(self, topic: str, message: str, title: str | None = None, priority: str | None = None) -> None:
         cfg = SimpleNamespace(**vars(self._cfg))
         cfg.ntfy_topic = topic
         if title:
             cfg.ntfy_title = title
+        if priority:
+            cfg.ntfy_priority = priority
         await asyncio.to_thread(_publish_sync, cfg, message)
         logger.info("Notification sent to ntfy topic %s", topic)
 

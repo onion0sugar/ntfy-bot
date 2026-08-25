@@ -28,12 +28,12 @@ async def _sleep_until(stop: asyncio.Event, seconds: float) -> None:
         pass
 
 
-async def _send_batch(ntfy: Ntfy, messages: list[tuple[str, str, str]], limit: int) -> None:
+async def _send_batch(ntfy: Ntfy, messages: list[tuple[str, str, str, str]], limit: int) -> None:
     semaphore = asyncio.Semaphore(limit)
 
-    async def send(topic: str, text: str, title: str) -> None:
+    async def send(topic: str, text: str, title: str, priority: str) -> None:
         async with semaphore:
-            await ntfy.publish_to(topic, text, title)
+            await ntfy.publish_to(topic, text, title, priority)
 
     for start in range(0, len(messages), limit):
         results = await asyncio.gather(*(send(*item) for item in messages[start:start + limit]), return_exceptions=True)
@@ -77,7 +77,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
 
                 ready_users: set[str] = set()
                 busy22: set[str] = set()
-                messages: list[tuple[str, str, str]] = []
+                messages: list[tuple[str, str, str, str]] = []
                 # Najpierw zapisz wszystkie zakończone zamówienia typu 7 z tego pollingu.
                 for row in courier_rows:
                     if row.document_type == "7" and row.status == "end" and row.doc_id is not None and row.user_name and row.packaged_position_count is not None:
@@ -91,8 +91,8 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                         if changed and row.document_type == "22" and row.courier_id == str(cfg.courier_id) and row.status == "new":
                             ready_users = top_finished_users(state)
                             for login in ready_users:
-                                messages.append((f"{login}-rdy", DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania"))
-                            messages.append((cfg.supervisor_topic, DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania"))
+                                messages.append((login, DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania", "max"))
+                            messages.append((cfg.supervisor_topic, DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania", "max"))
                             logger.info("Ready order %s; recipients: %s", row.number, ", ".join(sorted(ready_users)) or "none")
 
                 # Gotowe do wydania i typ 22 in_progress mają pierwszeństwo nad nowymi.
@@ -111,10 +111,10 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                         if announce:
                             last_new_order = order_key
                             last_new_announcement = now
-                            messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie"))
+                            messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie", "default"))
                             for login in users:
                                 if login not in busy:
-                                    messages.append((f"{login}-new", DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie"))
+                                    messages.append((login, DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie", "default"))
                             logger.info("New order %s; free recipients: %d plus supervisor", number, sum(login not in busy for login in users))
                         else:
                             logger.info("New order %s; notification skipped (announce interval)", number)

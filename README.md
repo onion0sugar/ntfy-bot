@@ -80,8 +80,10 @@ Skopiuj plik użytkowników i wpisz jeden login w każdej linii:
 cp users.txt.example users.txt
 ```
 
-Topiki są tworzone automatycznie: `login-new` dla nowego zamówienia oraz `login-rdy`
-dla zamówienia gotowego do wydania. Lista z `users.txt` jest wczytywana tylko przy starcie.
+Każdy użytkownik ma jeden topic równy jego loginowi MSSQL. Nowe zamówienie jest
+wysyłane z priorytetem `default`, a gotowe zamówienie z priorytetem `max`.
+Jeśli w tym samym pollingu wykryto gotowe zamówienie, powiadomienie o nowym
+zamówieniu nie jest wysyłane. Lista z `users.txt` jest wczytywana tylko przy starcie.
 
 ### 5. Sprawdź konfigurację
 
