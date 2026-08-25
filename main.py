@@ -19,6 +19,7 @@ logger = logging.getLogger("bot")
 RECONNECT_DELAY = 5
 DEFAULT_NEW_TEXT = "{}"
 DEFAULT_READY_TEXT = "{}"
+ORDER_URL = "https://it.serwis-kop.pl/magazyn/pl/warehouse/collectingcustomerorders/view/{}"
 
 
 async def _sleep_until(stop: asyncio.Event, seconds: float) -> None:
@@ -102,6 +103,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                     if messages:
                         logger.info("New order %s skipped because a ready-order notification has priority", number)
                     else:
+                        new_order_text = ORDER_URL.format(_order_id) if _order_id is not None else number
                         order_key = (_order_id, number)
                         announce = (
                             order_key != last_new_order
@@ -111,10 +113,10 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                         if announce:
                             last_new_order = order_key
                             last_new_announcement = now
-                            messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie", "default"))
+                            messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(new_order_text), "Nowe zamówienie", "default"))
                             for login in users:
                                 if login not in busy:
-                                    messages.append((login, DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie", "default"))
+                                    messages.append((login, DEFAULT_NEW_TEXT.format(new_order_text), "Nowe zamówienie", "default"))
                             logger.info("New order %s; free recipients: %d plus supervisor", number, sum(login not in busy for login in users))
                         else:
                             logger.info("New order %s; notification skipped (announce interval)", number)

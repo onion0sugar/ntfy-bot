@@ -16,7 +16,7 @@
 -- sortowania / warunku dostosuj do swojej tabeli.
 -- ============================================================================
 
-SELECT TOP(1)OriginalNumber
+SELECT TOP(1) DD.Id, DD.OriginalNumber
   FROM [SerwisKop_Magazyn].[Document].[Documents] DD
   WHERE DocumentType = 7
   AND DD.DateCreatedUtc >= DATEADD(DAY, -14, GETUTCDATE())
