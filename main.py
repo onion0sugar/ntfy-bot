@@ -89,7 +89,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                             busy22.add(row.user_name)
                     if row.doc_id is not None:
                         changed = courier_changed(state, row.doc_id, row.courier_id, row.status, row.user_name)
-                        if changed and row.document_type == "22" and row.courier_id == str(cfg.courier_id) and row.status == "new":
+                        if changed and row.document_type == "22" and row.courier_id == str(cfg.courier_id) and row.status != "end":
                             ready_users = top_finished_users(state)
                             for login in ready_users:
                                 messages.append((login, DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania", "max"))
