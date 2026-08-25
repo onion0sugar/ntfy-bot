@@ -17,8 +17,8 @@ from users import load_users
 
 logger = logging.getLogger("bot")
 RECONNECT_DELAY = 5
-DEFAULT_NEW_TEXT = "🔔 Nowe zamówienie: {}"
-DEFAULT_READY_TEXT = "📦 Zamówienie gotowe do wydania: {}"
+DEFAULT_NEW_TEXT = "{}"
+DEFAULT_READY_TEXT = "{}"
 
 
 async def _sleep_until(stop: asyncio.Event, seconds: float) -> None:
