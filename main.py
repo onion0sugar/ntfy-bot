@@ -13,7 +13,7 @@ from config import ConfigError, load_config
 from db import BUSY_QUERY_FILE, COURIER_QUERY_FILE, DbError, connect_db, fetch_busy_users, fetch_courier_rows, get_next_order, load_query
 from ntfy import Ntfy, NtfyError
 from state import courier_changed, open_state
-from users import load_mapping
+from users import load_users
 
 logger = logging.getLogger("bot")
 RECONNECT_DELAY = 5
@@ -47,7 +47,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
     query = load_query()
     busy_query = load_query(BUSY_QUERY_FILE)
     courier_query = load_query(COURIER_QUERY_FILE)
-    mapping = load_mapping(cfg.mapping_file)
+    users = load_users(cfg.users_file)
     state = open_state()
     ntfy = Ntfy(cfg)
     db = None
@@ -86,18 +86,17 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                         changed = courier_changed(state, row.doc_id, row.courier_id, row.status, row.user_name)
                         # Typ 22 in_progress jest wyłącznie blokadą — nigdy nie wysyła alertu.
                         if changed and row.courier_id == str(cfg.courier_id) and row.status == "new":
-                            topics = mapping.get(row.user_name)
-                            if topics:
-                                messages.append((topics["ready_order_topic"], DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania"))
+                            if row.user_name:
+                                messages.append((f"{row.user_name}-rdy", DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania"))
 
                 # Gotowe do wydania i typ 22 in_progress mają pierwszeństwo nad nowymi.
                 busy = busy7 | busy22 | ready_users
                 if new_order:
                     _order_id, number = new_order
-                    for login, topics in mapping.items():
+                    for login in users:
                         if login not in busy:
-                            messages.append((topics["new_order_topic"], DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie"))
-                    logger.info("New order %s; free recipients: %d", number, sum(login not in busy for login in mapping))
+                            messages.append((f"{login}-new", DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie"))
+                    logger.info("New order %s; free recipients: %d", number, sum(login not in busy for login in users))
                 else:
                     logger.info("Query OK — no new orders")
                 if cfg.send_text and messages:
@@ -133,7 +132,7 @@ def test_db(cfg: SimpleNamespace) -> int:
         load_query()
         load_query(BUSY_QUERY_FILE)
         load_query(COURIER_QUERY_FILE)
-        load_mapping(cfg.mapping_file)
+        load_users(cfg.users_file)
     except Exception as exc:
         logger.error("DB test FAILED: %s", exc)
         return 1

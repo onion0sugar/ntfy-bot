@@ -66,23 +66,20 @@ W aplikacji ntfy zasubskrybuj dokładnie ten sam topic, który wpisano w `NTFY_T
 
 ### 4. Przygotuj pliki projektu
 
-Skopiuj przykładowe mapowanie użytkowników:
-
-```bash
-# Linux / macOS
-cp user_mapping.example.json user_mapping.json
-
-# Windows PowerShell
-Copy-Item user_mapping.example.json user_mapping.json
-```
-
-W `user_mapping.json` wpisz loginy z MSSQL oraz topiki ntfy dla każdego użytkownika.
-
 Dostosuj zapytania do swojej bazy:
 
 - `query.sql` – nowe zamówienia,
 - `query_busy.sql` – zajęci użytkownicy,
 - `query22.sql` – zamówienia gotowe do wydania.
+
+Skopiuj plik użytkowników i wpisz jeden login w każdej linii:
+
+```bash
+cp users.txt.example users.txt
+```
+
+Topiki są tworzone automatycznie: `login-new` dla nowego zamówienia oraz `login-rdy`
+dla zamówienia gotowego do wydania. Lista z `users.txt` jest wczytywana tylko przy starcie.
 
 ### 5. Sprawdź konfigurację
 
@@ -99,4 +96,4 @@ python main.py
 
 Zatrzymanie programu: `Ctrl+C`.
 
-Po każdej zmianie w `.env`, `user_mapping.json` lub plikach `.sql` uruchom program ponownie.
+Po każdej zmianie w `.env`, `users.txt` lub plikach `.sql` uruchom program ponownie.

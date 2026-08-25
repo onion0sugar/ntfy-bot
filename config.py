@@ -45,13 +45,13 @@ def load_config(env_file: str | None = None) -> SimpleNamespace:
         ntfy_title=_env("NTFY_TITLE", "Nowe zamówienie"),
         ntfy_priority=_env("NTFY_PRIORITY", "default"),
         ntfy_tags=_env("NTFY_TAGS", "package"),
+        users_file=_env("USERS_FILE", "users.txt"),
         # Zachowanie
         poll_interval=max(1, int(_env("POLL_INTERVAL", "10") or "10")),
         # Co ile sekund powtarzać powiadomienie na własnym zegarze, dopóki
         # query.sql zwraca wiersz; 0 = wysyłaj raz na POLL_INTERVAL (co poll)
         announce_interval=max(0, int(_env("ANNOUNCE_INTERVAL", "30") or "30")),
         send_text=_flag("SEND_TEXT", "true"),
-        mapping_file=_env("USER_MAPPING_FILE", "user_mapping.json"),
         courier_id=_env("COURIER_ID", "13"),
         max_notifications_per_batch=max(1, int(_env("MAX_NOTIFICATIONS_PER_BATCH", "3") or "3")),
     )
