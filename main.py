@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from config import ConfigError, load_config
 from db import BUSY_QUERY_FILE, COURIER_QUERY_FILE, DbError, connect_db, fetch_busy_users, fetch_courier_rows, get_next_order, load_query
 from ntfy import Ntfy, NtfyError
-from state import courier_changed, open_state
+from state import courier_changed, open_state, save_finished_order, top_finished_users
 from users import load_users
 
 logger = logging.getLogger("bot")
@@ -78,18 +78,21 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 ready_users: set[str] = set()
                 busy22: set[str] = set()
                 messages: list[tuple[str, str, str]] = []
+                # Najpierw zapisz wszystkie zakończone zamówienia typu 7 z tego pollingu.
+                for row in courier_rows:
+                    if row.document_type == "7" and row.status == "end" and row.doc_id is not None and row.user_name and row.packaged_position_count is not None:
+                        save_finished_order(state, row.doc_id, row.user_name, row.packaged_position_count)
                 for row in courier_rows:
                     if row.user_name:
                         if row.status == "in_progress":
                             busy22.add(row.user_name)
-                        if row.courier_id == str(cfg.courier_id) and row.status == "new":
-                            ready_users.add(row.user_name)
                     if row.doc_id is not None:
                         changed = courier_changed(state, row.doc_id, row.courier_id, row.status, row.user_name)
-                        # Typ 22 in_progress jest wyłącznie blokadą — nigdy nie wysyła alertu.
-                        if changed and row.courier_id == str(cfg.courier_id) and row.status == "new":
-                            if row.user_name:
-                                messages.append((f"{row.user_name}-rdy", DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania"))
+                        if changed and row.document_type == "22" and row.courier_id == str(cfg.courier_id) and row.status == "new":
+                            ready_users = top_finished_users(state)
+                            for login in ready_users:
+                                messages.append((f"{login}-rdy", DEFAULT_READY_TEXT.format(row.number), "Gotowe do wydania"))
+                            logger.info("Ready order %s; recipients: %s", row.number, ", ".join(sorted(ready_users)) or "none")
 
                 # Gotowe do wydania i typ 22 in_progress mają pierwszeństwo nad nowymi.
                 busy = busy7 | busy22 | ready_users

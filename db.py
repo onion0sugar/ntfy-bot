@@ -132,9 +132,11 @@ def get_next_order(cursor, query: str) -> tuple[int | None, str] | None:
 class CourierRow:
     doc_id: int | None
     number: str
+    document_type: str
     courier_id: str
     status: str
     user_name: str
+    packaged_position_count: int | None
 
 
 def fetch_column_rows(cursor, query: str, required: tuple[str, ...]) -> list[dict[str, object]]:
@@ -158,12 +160,16 @@ def fetch_busy_users(cursor, query: str) -> set[str]:
 
 
 def fetch_courier_rows(cursor, query: str) -> list[CourierRow]:
-    rows = fetch_column_rows(cursor, query, ("id", "originalnumber", "courierid", "documentstatustext", "username"))
+    rows = fetch_column_rows(cursor, query, ("id", "originalnumber", "documenttype", "courierid", "documentstatustext", "username", "packagedpositioncount"))
     result = []
     for row in rows:
         try:
             doc_id = int(row["id"]) if row["id"] is not None else None
         except (TypeError, ValueError):
             doc_id = None
-        result.append(CourierRow(doc_id, str(row["originalnumber"] or "").strip(), str(row["courierid"] or "").strip(), str(row["documentstatustext"] or "").strip().lower().replace(" ", "_"), str(row["username"] or "").strip()))
+        try:
+            packaged_count = int(row["packagedpositioncount"]) if row["packagedpositioncount"] is not None else None
+        except (TypeError, ValueError):
+            packaged_count = None
+        result.append(CourierRow(doc_id, str(row["originalnumber"] or "").strip(), str(row["documenttype"] or "").strip(), str(row["courierid"] or "").strip(), str(row["documentstatustext"] or "").strip().lower().replace(" ", "_"), str(row["username"] or "").strip(), packaged_count))
     return result
