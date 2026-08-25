@@ -10,6 +10,11 @@ from urllib import error, request
 logger = logging.getLogger("ntfy")
 
 
+def _utf8_header(value: str) -> str:
+    """Przygotuj UTF-8 dla nagłówka HTTP wysyłanego przez urllib."""
+    return value.encode("utf-8").decode("latin-1")
+
+
 class NtfyError(Exception):
     """Błąd publikacji lub konfiguracji ntfy."""
 
@@ -18,7 +23,7 @@ def _publish_sync(cfg: SimpleNamespace, message: str) -> None:
     url = f"{(cfg.ntfy_server or 'https://ntfy.sh').rstrip('/')}/{cfg.ntfy_topic.lstrip('/')}"
     headers = {
         "Content-Type": "text/plain; charset=utf-8",
-        "Title": cfg.ntfy_title,
+        "Title": _utf8_header(cfg.ntfy_title),
         "Priority": cfg.ntfy_priority,
     }
     if cfg.ntfy_tags:
