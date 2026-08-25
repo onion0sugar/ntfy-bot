@@ -5,7 +5,6 @@ LEFT JOIN Core.Users CU ON CU.Id = TRY_CONVERT(int, DD.ModifiedBy)
 LEFT JOIN [SerwisKop_Magazyn].[Document].[CustomerOrderDocumentConfigurations] CONF
   ON CONF.Id = DD.CustomerOrderDocumentConfigurationId
 WHERE DD.DateCreatedUtc >= DATEADD(DAY, -14, GETUTCDATE())
-  AND DD.DocumentType IN (7, 22)
   AND DD.SubType = 50
-  AND DD.DocumentStatusText = 'in_progress'
-
+  AND (DD.DocumentType = 7 AND DD.DocumentStatusText = 'in_progress')
+  OR (DD.DocumentType = 22 AND CONF.CourierId = 13 AND DD.DocumentStatusText = 'in_progress');
