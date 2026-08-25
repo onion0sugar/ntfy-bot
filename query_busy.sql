@@ -7,5 +7,5 @@ LEFT JOIN [SerwisKop_Magazyn].[Document].[CustomerOrderDocumentConfigurations] C
 WHERE DD.DateCreatedUtc >= DATEADD(DAY, -14, GETUTCDATE())
   AND DD.DocumentType IN (7, 22)
   AND DD.SubType = 50
-  AND (CONF.CourierId = 13 AND DD.DocumentStatusText = 'in_progress')
+  AND DD.DocumentStatusText = 'in_progress'
 

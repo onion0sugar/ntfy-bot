@@ -1,0 +1,23 @@
+services:
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: ntfy
+    command: serve
+    restart: unless-stopped
+    environment:
+      # Zmień na adres domenowy serwera, jeśli ntfy będzie dostępne poza LAN.
+      NTFY_BASE_URL: "${NTFY_BASE_URL:-http://localhost:8093}"
+      NTFY_CACHE_FILE: /var/lib/ntfy/cache.db
+
+      # Dostęp read-write jest prosty do uruchomienia w sieci lokalnej.
+      # Przed wystawieniem do Internetu skonfiguruj autoryzację i HTTPS.
+      NTFY_AUTH_DEFAULT_ACCESS: "read-write"
+
+      # Limity ochronne serwera można dostosować do własnego użycia.
+      NTFY_VISITOR_REQUEST_LIMIT_BURST: "1000"
+      NTFY_VISITOR_REQUEST_LIMIT_REPLENISH: "1s"
+      NTFY_VISITOR_MESSAGE_DAILY_LIMIT: "0"
+    volumes:
+      - ./ntfy-data:/var/lib/ntfy
+    ports:
+      - "8093:80"

@@ -52,6 +52,8 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
     ntfy = Ntfy(cfg)
     db = None
     next_poll = time.monotonic()
+    last_new_order: tuple[int | None, str] | None = None
+    last_new_announcement = 0.0
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         try:
@@ -93,11 +95,23 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 busy = busy7 | busy22 | ready_users
                 if new_order:
                     _order_id, number = new_order
-                    for login in users:
-                        if login not in busy:
-                            messages.append((f"{login}-new", DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie"))
-                    logger.info("New order %s; free recipients: %d", number, sum(login not in busy for login in users))
+                    order_key = (_order_id, number)
+                    announce = (
+                        order_key != last_new_order
+                        or cfg.announce_interval == 0
+                        or now - last_new_announcement >= cfg.announce_interval
+                    )
+                    if announce:
+                        last_new_order = order_key
+                        last_new_announcement = now
+                        for login in users:
+                            if login not in busy:
+                                messages.append((f"{login}-new", DEFAULT_NEW_TEXT.format(number), "Nowe zamówienie"))
+                        logger.info("New order %s; free recipients: %d", number, sum(login not in busy for login in users))
+                    else:
+                        logger.info("New order %s; notification skipped (announce interval)", number)
                 else:
+                    last_new_order = None
                     logger.info("Query OK — no new orders")
                 if cfg.send_text and messages:
                     await _send_batch(ntfy, messages, cfg.max_notifications_per_batch)
