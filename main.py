@@ -104,12 +104,16 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                     with db.cursor() as cursor:
                         for number in ready_numbers:
                             last_ready_announcements[number] = now
-                            matching_users = fetch_top_ready_user(cursor, ready_users_query, number)
+                            top_user = fetch_top_ready_user(cursor, ready_users_query, number)
+                            matching_users = {top_user[0]} if top_user else set()
                             ready_users.update(matching_users)
-                            for login in matching_users:
-                                messages.append((login, DEFAULT_READY_TEXT.format(number), "Gotowe do wydania", "max"))
-                            messages.append((cfg.supervisor_topic, DEFAULT_READY_TEXT.format(number), "Gotowe do wydania", "max"))
-                            logger.info("Ready order %s; recipients: %s", number, ", ".join(sorted(matching_users)) or "none")
+                            ready_text = DEFAULT_READY_TEXT.format(number)
+                            if top_user:
+                                login, packaged_count = top_user
+                                ready_text = f"{number}\n{login}\nZebrane pozycje: {packaged_count}"
+                                messages.append((login, ready_text, "Gotowe do wydania", "max"))
+                            messages.append((cfg.supervisor_topic, ready_text, "Gotowe do wydania", "max"))
+                            logger.info("Ready order %s; top recipient: %s", number, top_user[0] if top_user else "none")
 
                 # Gotowe do wydania i typ 22 in_progress mają pierwszeństwo nad nowymi.
                 busy = busy7 | busy22 | ready_users

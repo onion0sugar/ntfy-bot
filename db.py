@@ -159,8 +159,17 @@ def fetch_busy_users(cursor, query: str) -> set[str]:
     return {str(row["username"]).strip() for row in fetch_column_rows(cursor, query, ("username",)) if row["username"]}
 
 
-def fetch_top_ready_user(cursor, query: str, original_number: str) -> set[str]:
-    return {str(row["username"]).strip() for row in fetch_column_rows(cursor, query, ("username",), (original_number,)) if row["username"]}
+def fetch_top_ready_user(cursor, query: str, original_number: str) -> tuple[str, int] | None:
+    rows = fetch_column_rows(cursor, query, ("username", "packagedpositioncount"), (original_number,))
+    for row in rows:
+        if not row["username"]:
+            continue
+        try:
+            count = int(row["packagedpositioncount"] or 0)
+        except (TypeError, ValueError):
+            count = 0
+        return str(row["username"]).strip(), count
+    return None
 
 
 def fetch_courier_rows(cursor, query: str) -> list[CourierRow]:
