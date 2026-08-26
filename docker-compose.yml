@@ -21,26 +21,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  bot:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: ntfy-bot
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      # Bot korzysta z wewnętrznej sieci Docker, nie z adresu hosta.
-      NTFY_SERVER: http://ntfy:80
-      STATE_FILE: /var/lib/ntfy-bot/state.db
-    depends_on:
-      ntfy:
-        condition: service_healthy
-    volumes:
-      - ./bot-data:/var/lib/ntfy-bot
-      - ./users.txt:/app/users.txt:ro
-      - ./query.sql:/app/query.sql:ro
-      - ./query_busy.sql:/app/query_busy.sql:ro
-      - ./query22.sql:/app/query22.sql:ro
-      - ./query22_users.sql:/app/query22_users.sql:ro
