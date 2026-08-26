@@ -85,7 +85,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 ready_candidates: set[str] = set()
                 for row in courier_rows:
                     if row.user_name:
-                        if row.status == "in_progress":
+                        if row.status == "in_progress" and row.item_count > 0:
                             busy22.add(row.user_name)
                     if row.doc_id is not None:
                         changed = courier_changed(state, row.doc_id, row.courier_id, row.status, row.user_name)
