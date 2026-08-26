@@ -110,7 +110,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                             ready_text = DEFAULT_READY_TEXT.format(number)
                             if top_user:
                                 login, packaged_count = top_user
-                                ready_text = f"{number}\n{login}\nZebrane pozycje: {packaged_count}"
+                                ready_text = f"{number}\n{login}({packaged_count})"
                                 messages.append((login, ready_text, "Gotowe do wydania", "max"))
                             messages.append((cfg.supervisor_topic, ready_text, "Gotowe do wydania", "max"))
                             logger.info("Ready order %s; top recipient: %s", number, top_user[0] if top_user else "none")
