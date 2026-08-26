@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from config import ConfigError, load_config
 from db import BUSY_QUERY_FILE, COURIER_QUERY_FILE, READY_USERS_QUERY_FILE, DbError, connect_db, fetch_busy_users, fetch_courier_rows, fetch_top_ready_user, get_next_order, load_query
 from ntfy import Ntfy, NtfyError
-from state import courier_changed, open_state, save_finished_order
+from state import courier_changed, open_state
 from users import load_users
 
 logger = logging.getLogger("bot")
@@ -81,10 +81,6 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 busy22: set[str] = set()
                 messages: list[tuple[str, str, str, str]] = []
                 ready_numbers: list[str] = []
-                # Najpierw zapisz wszystkie zakończone zamówienia typu 7 z tego pollingu.
-                for row in courier_rows:
-                    if row.document_type == "7" and row.status == "end" and row.doc_id is not None and row.user_name and row.packaged_position_count is not None:
-                        save_finished_order(state, row.doc_id, row.user_name, row.packaged_position_count)
                 for row in courier_rows:
                     if row.user_name:
                         if row.status == "in_progress":

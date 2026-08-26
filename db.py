@@ -137,7 +137,6 @@ class CourierRow:
     courier_id: str
     status: str
     user_name: str
-    packaged_position_count: int | None
 
 
 def fetch_column_rows(cursor, query: str, required: tuple[str, ...], params: tuple[object, ...] = ()) -> list[dict[str, object]]:
@@ -161,20 +160,16 @@ def fetch_busy_users(cursor, query: str) -> set[str]:
 
 
 def fetch_top_ready_user(cursor, query: str, original_number: str) -> set[str]:
-    return {str(row["username"]).strip() for row in fetch_column_rows(cursor, query, ("username", "packagedpositioncount"), (original_number,)) if row["username"]}
+    return {str(row["username"]).strip() for row in fetch_column_rows(cursor, query, ("username",), (original_number,)) if row["username"]}
 
 
 def fetch_courier_rows(cursor, query: str) -> list[CourierRow]:
-    rows = fetch_column_rows(cursor, query, ("id", "originalnumber", "documenttype", "courierid", "documentstatustext", "username", "packagedpositioncount"))
+    rows = fetch_column_rows(cursor, query, ("id", "originalnumber", "documenttype", "courierid", "documentstatustext", "username"))
     result = []
     for row in rows:
         try:
             doc_id = int(row["id"]) if row["id"] is not None else None
         except (TypeError, ValueError):
             doc_id = None
-        try:
-            packaged_count = int(row["packagedpositioncount"]) if row["packagedpositioncount"] is not None else None
-        except (TypeError, ValueError):
-            packaged_count = None
-        result.append(CourierRow(doc_id, str(row["originalnumber"] or "").strip(), str(row["documenttype"] or "").strip(), str(row["courierid"] or "").strip(), str(row["documentstatustext"] or "").strip().lower().replace(" ", "_"), str(row["username"] or "").strip(), packaged_count))
+        result.append(CourierRow(doc_id, str(row["originalnumber"] or "").strip(), str(row["documenttype"] or "").strip(), str(row["courierid"] or "").strip(), str(row["documentstatustext"] or "").strip().lower().replace(" ", "_"), str(row["username"] or "").strip()))
     return result
