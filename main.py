@@ -54,7 +54,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
     ntfy = Ntfy(cfg)
     db = None
     next_poll = time.monotonic()
-    last_new_orders: tuple[tuple[int | None, str], ...] | None = None
+    last_new_order: tuple[int | None, str] | None = None
     last_new_announcement = 0.0
     last_ready_announcements: dict[str, float] = {}
     loop = asyncio.get_running_loop()
@@ -74,7 +74,10 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 if db is None:
                     db = connect_db(cfg)
                 with db.cursor() as cursor:
-                    new_orders = sorted(get_new_orders(cursor, query), key=lambda order: order[1])
+                    new_orders = sorted(
+                        get_new_orders(cursor, query),
+                        key=lambda order: (order[0] is None, order[0] if order[0] is not None else 0, order[1]),
+                    )
                     busy7 = fetch_busy_users(cursor, busy_query)
                     courier_rows = fetch_courier_rows(cursor, courier_query)
 
@@ -123,30 +126,36 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 # Gotowe do wydania i typ 22 in_progress mają pierwszeństwo nad nowymi.
                 busy = busy7 | busy22 | ready_users
                 if new_orders:
-                    new_order_key = tuple(new_orders)
-                    numbers_text = "\n".join(number for _order_id, number in new_orders if number)
-                    number = numbers_text.replace("\n", ", ")
+                    # Wysyłaj jeden dokument na cykl, zaczynając od najstarszego
+                    # (najmniejszy documentId), a potem przechodź do kolejnego.
+                    if last_new_order in new_orders:
+                        previous_index = new_orders.index(last_new_order)
+                        selected_order = new_orders[(previous_index + 1) % len(new_orders)]
+                    else:
+                        selected_order = new_orders[0]
+                    order_id, order_number = selected_order
+                    number = order_number
                     if messages:
                         logger.info("New order %s skipped because a ready-order notification has priority", number)
                     else:
                         announce = (
-                            new_order_key != last_new_orders
+                            selected_order != last_new_order
                             or cfg.announce_interval == 0
                             or now - last_new_announcement >= cfg.announce_interval
                         )
                         if announce:
-                            last_new_orders = new_order_key
+                            last_new_order = selected_order
                             last_new_announcement = now
-                            click_url = ORDER_URL.format(new_orders[0][0]) if len(new_orders) == 1 and new_orders[0][0] is not None else None
-                            messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(numbers_text), "Nowe zamówienie", "default", click_url))
+                            click_url = ORDER_URL.format(order_id) if order_id is not None else None
+                            messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url))
                             for login in users:
                                 if login not in busy:
-                                    messages.append((login, DEFAULT_NEW_TEXT.format(numbers_text), "Nowe zamówienie", "default", click_url))
+                                    messages.append((login, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url))
                             logger.info("New order %s; free recipients: %d plus supervisor", number, sum(login not in busy for login in users))
                         else:
                             logger.info("New order %s; notification skipped (announce interval)", number)
                 else:
-                    last_new_orders = None
+                    last_new_order = None
                     logger.info("Query OK — no new orders")
                 if cfg.send_text and messages:
                     await _send_batch(ntfy, messages, cfg.max_notifications_per_batch)
