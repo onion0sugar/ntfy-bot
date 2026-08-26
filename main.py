@@ -56,6 +56,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
     next_poll = time.monotonic()
     last_new_order: tuple[int | None, str] | None = None
     last_new_announcement = 0.0
+    last_ready_announcements: dict[str, float] = {}
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         try:
@@ -81,18 +82,28 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 busy22: set[str] = set()
                 messages: list[tuple[str, str, str, str]] = []
                 ready_numbers: list[str] = []
+                ready_candidates: set[str] = set()
                 for row in courier_rows:
                     if row.user_name:
                         if row.status == "in_progress":
                             busy22.add(row.user_name)
                     if row.doc_id is not None:
                         changed = courier_changed(state, row.doc_id, row.courier_id, row.status, row.user_name)
-                        if changed and row.document_type == "22" and row.courier_id == str(cfg.courier_id) and row.status != "end":
-                            ready_numbers.append(row.number)
+                        if row.document_type == "22" and row.courier_id == str(cfg.courier_id) and row.status != "end" and row.number:
+                            ready_candidates.add(row.number)
+
+                # Typ 22 powtarzamy według ANNOUNCE_INTERVAL, tak jak nowe zamówienia.
+                for number in ready_candidates:
+                    last_sent = last_ready_announcements.get(number)
+                    if last_sent is None or cfg.announce_interval == 0 or now - last_sent >= cfg.announce_interval:
+                        ready_numbers.append(number)
+                for number in set(last_ready_announcements) - ready_candidates:
+                    del last_ready_announcements[number]
 
                 if ready_numbers:
                     with db.cursor() as cursor:
                         for number in ready_numbers:
+                            last_ready_announcements[number] = now
                             matching_users = fetch_top_ready_user(cursor, ready_users_query, number)
                             ready_users.update(matching_users)
                             for login in matching_users:
