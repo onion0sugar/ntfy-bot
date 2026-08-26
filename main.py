@@ -112,7 +112,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                             if top_user:
                                 login, packaged_count = top_user
                                 users_text = "\n".join(
-                                    f"{login}: {packaged_count} pozycji"
+                                    f"{login} ({packaged_count})"
                                     for login, packaged_count in top_users
                                 )
                                 ready_text = f"{number}\n{users_text}"
