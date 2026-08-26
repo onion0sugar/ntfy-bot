@@ -52,8 +52,15 @@ def load_query(path: str = QUERY_FILE) -> str:
     statement = "\n".join(lines).strip()
     if not statement:
         raise DbError(f"Plik zapytania {path} zawiera tylko komentarze.")
-    if not statement.lstrip().upper().startswith("SELECT"):
-        raise DbError(f"Plik zapytania {path} musi zaczynać się od SELECT.")
+    # SQL Server pozwala poprzedzić SELECT definicją CTE, zwykle zapisaną jako
+    # ";WITH ... SELECT ...". Taki wstęp jest nadal zapytaniem tylko do
+    # odczytu, więc nie można wymagać, aby pierwszy token był SELECT.
+    normalized = statement.lstrip()
+    if normalized.startswith(";"):
+        normalized = normalized[1:].lstrip()
+    first_token = normalized.split(None, 1)[0].upper() if normalized else ""
+    if first_token not in {"SELECT", "WITH"}:
+        raise DbError(f"Plik zapytania {path} musi zaczynać się od SELECT lub WITH.")
     return statement
 
 

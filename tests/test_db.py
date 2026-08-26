@@ -129,6 +129,12 @@ def test_load_query_reads_file(tmp_path):
     assert load_query(str(path)) == "SELECT 1"
 
 
+def test_load_query_accepts_select_with_cte(tmp_path):
+    path = tmp_path / "q.sql"
+    path.write_text(";WITH rows AS (SELECT 1 AS value) SELECT value FROM rows", encoding="utf-8")
+    assert load_query(str(path)).startswith(";WITH")
+
+
 # --- zapytanie -------------------------------------------------------------------
 
 
