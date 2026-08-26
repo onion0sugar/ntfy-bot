@@ -129,6 +129,27 @@ def get_next_order(cursor, query: str) -> tuple[int | None, str] | None:
     return None, order_number
 
 
+def get_new_orders(cursor, query: str) -> list[tuple[int | None, str]]:
+    """Wykonaj query.sql i zwróć wszystkie znalezione zamówienia."""
+    try:
+        cursor.execute(query)
+        rows = cursor.fetchall()
+    except Exception as exc:
+        raise DbError(f"Query failed: {exc}") from exc
+    result = []
+    for row in rows:
+        if len(row) >= 2:
+            order_number = "" if row[1] is None else str(row[1])
+            try:
+                order_id: int | None = int(row[0])
+            except (TypeError, ValueError):
+                order_id = None
+            result.append((order_id, order_number))
+        elif row:
+            result.append((None, "" if row[0] is None else str(row[0])))
+    return result
+
+
 @dataclass(frozen=True)
 class CourierRow:
     doc_id: int | None

@@ -10,7 +10,7 @@ import time
 from types import SimpleNamespace
 
 from config import ConfigError, load_config
-from db import BUSY_QUERY_FILE, COURIER_QUERY_FILE, READY_USERS_QUERY_FILE, DbError, connect_db, fetch_busy_users, fetch_courier_rows, fetch_top_ready_user, get_next_order, load_query
+from db import BUSY_QUERY_FILE, COURIER_QUERY_FILE, READY_USERS_QUERY_FILE, DbError, connect_db, fetch_busy_users, fetch_courier_rows, fetch_top_ready_user, get_new_orders, load_query
 from ntfy import Ntfy, NtfyError
 from state import courier_changed, open_state
 from users import load_users
@@ -54,7 +54,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
     ntfy = Ntfy(cfg)
     db = None
     next_poll = time.monotonic()
-    last_new_order: tuple[int | None, str] | None = None
+    last_new_orders: tuple[tuple[int | None, str], ...] | None = None
     last_new_announcement = 0.0
     last_ready_announcements: dict[str, float] = {}
     loop = asyncio.get_running_loop()
@@ -74,7 +74,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 if db is None:
                     db = connect_db(cfg)
                 with db.cursor() as cursor:
-                    new_order = get_next_order(cursor, query)
+                    new_orders = sorted(get_new_orders(cursor, query), key=lambda order: order[1])
                     busy7 = fetch_busy_users(cursor, busy_query)
                     courier_rows = fetch_courier_rows(cursor, courier_query)
 
@@ -122,30 +122,30 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
 
                 # Gotowe do wydania i typ 22 in_progress mają pierwszeństwo nad nowymi.
                 busy = busy7 | busy22 | ready_users
-                if new_order:
-                    _order_id, number = new_order
+                if new_orders:
+                    new_order_key = tuple(new_orders)
+                    numbers_text = "\n".join(number for _order_id, number in new_orders if number)
+                    number = numbers_text.replace("\n", ", ")
                     if messages:
                         logger.info("New order %s skipped because a ready-order notification has priority", number)
                     else:
-                        new_order_text = ORDER_URL.format(_order_id) if _order_id is not None else number
-                        order_key = (_order_id, number)
                         announce = (
-                            order_key != last_new_order
+                            new_order_key != last_new_orders
                             or cfg.announce_interval == 0
                             or now - last_new_announcement >= cfg.announce_interval
                         )
                         if announce:
-                            last_new_order = order_key
+                            last_new_orders = new_order_key
                             last_new_announcement = now
-                            messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(new_order_text), "Nowe zamówienie", "default"))
+                            messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(numbers_text), "Nowe zamówienie", "default"))
                             for login in users:
                                 if login not in busy:
-                                    messages.append((login, DEFAULT_NEW_TEXT.format(new_order_text), "Nowe zamówienie", "default"))
+                                    messages.append((login, DEFAULT_NEW_TEXT.format(numbers_text), "Nowe zamówienie", "default"))
                             logger.info("New order %s; free recipients: %d plus supervisor", number, sum(login not in busy for login in users))
                         else:
                             logger.info("New order %s; notification skipped (announce interval)", number)
                 else:
-                    last_new_order = None
+                    last_new_orders = None
                     logger.info("Query OK — no new orders")
                 if cfg.send_text and messages:
                     await _send_batch(ntfy, messages, cfg.max_notifications_per_batch)
