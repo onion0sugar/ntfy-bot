@@ -80,10 +80,10 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                             top_users = fetch_top_ready_user(cursor, ready_users_query, row.number)
                             top_user = top_users[0] if top_users else None
                             ready_text = f"ZP: {row.number}"
-                            click_url = ORDER_URL.format(row.doc_id) if row.doc_id is not None else None
+                            click_url = ORDER_URL.format(top_user[2]) if top_user else None
                             if top_user:
                                 ready_users.add(top_user[0])
-                                ready_text += "\n" + "\n".join(f"{login} ({count})" for login, count in top_users)
+                                ready_text += "\n" + "\n".join(f"{login} ({count})" for login, count, _document_id in top_users)
                                 ready_messages.append((top_user[0], ready_text, "Gotowe do wydania", "max", click_url))
                             ready_messages.append((cfg.supervisor_topic, ready_text, "Gotowe do wydania", "max", click_url))
                     latest_orders = sorted(

@@ -187,9 +187,9 @@ def fetch_busy_users(cursor, query: str) -> set[str]:
     return {str(row["username"]).strip() for row in fetch_column_rows(cursor, query, ("username",)) if row["username"]}
 
 
-def fetch_top_ready_user(cursor, query: str, original_number: str) -> list[tuple[str, int]]:
-    rows = fetch_column_rows(cursor, query, ("username", "packagedpositioncount"), (original_number,))
-    result: list[tuple[str, int]] = []
+def fetch_top_ready_user(cursor, query: str, original_number: str) -> list[tuple[str, int, int]]:
+    rows = fetch_column_rows(cursor, query, ("username", "packagedpositioncount", "id"), (original_number,))
+    result: list[tuple[str, int, int]] = []
     for row in rows:
         if not row["username"]:
             continue
@@ -197,7 +197,11 @@ def fetch_top_ready_user(cursor, query: str, original_number: str) -> list[tuple
             count = int(row["packagedpositioncount"] or 0)
         except (TypeError, ValueError):
             count = 0
-        result.append((str(row["username"]).strip(), count))
+        try:
+            document_id = int(row["id"])
+        except (TypeError, ValueError):
+            continue
+        result.append((str(row["username"]).strip(), count, document_id))
     return result
 
 
