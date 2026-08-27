@@ -10,7 +10,7 @@ import time
 from types import SimpleNamespace
 
 from config import ConfigError, load_config
-from db import BUSY_QUERY_FILE, COURIER_QUERY_FILE, READY_USERS_QUERY_FILE, DbError, connect_db, fetch_busy_users, fetch_courier_rows, fetch_top_ready_user, get_new_orders, load_query
+from db import COURIER_QUERY_FILE, READY_USERS_QUERY_FILE, DbError, connect_db, fetch_courier_rows, fetch_top_ready_user, load_query
 from ntfy import Ntfy, NtfyError
 from state import courier_changed, open_state
 from users import load_users
@@ -45,18 +45,12 @@ async def _send_batch(ntfy: Ntfy, messages: list[tuple[str, str, str, str, str |
 
 async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -> int:
     stop = stop or asyncio.Event()
-    query = load_query()
-    busy_query = load_query(BUSY_QUERY_FILE)
     courier_query = load_query(COURIER_QUERY_FILE)
     ready_users_query = load_query(READY_USERS_QUERY_FILE)
     users = load_users(cfg.users_file)
     state = open_state(cfg.state_file)
     ntfy = Ntfy(cfg)
     db = None
-    next_poll = time.monotonic()
-    last_new_order: tuple[int | None, str] | None = None
-    last_new_announcement = 0.0
-    last_ready_announcements: dict[str, float] = {}
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         try:
@@ -64,102 +58,48 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
         except NotImplementedError:
             pass
 
-    try:
+    latest_orders: list[tuple[int | None, str]] = []
+    latest_busy: set[str] = set()
+    latest_ready_messages: list[tuple[str, str, str, str, str | None]] = []
+    poll_finished = asyncio.Event()
+    last_new_order: tuple[int | None, str] | None = None
+
+    async def poll_loop() -> None:
+        nonlocal db, latest_orders, latest_busy, latest_ready_messages
         while not stop.is_set():
             try:
-                now = time.monotonic()
-                if now < next_poll:
-                    await _sleep_until(stop, next_poll - now)
-                    continue
                 if db is None:
                     db = connect_db(cfg)
                 with db.cursor() as cursor:
-                    new_orders = sorted(
-                        get_new_orders(cursor, query),
+                    courier_rows = fetch_courier_rows(cursor, courier_query)
+                    ready_messages: list[tuple[str, str, str, str, str | None]] = []
+                    ready_users: set[str] = set()
+                    for row in courier_rows:
+                        if row.doc_id is not None:
+                            courier_changed(state, row.doc_id, row.courier_id, row.status, row.user_name)
+                        if row.document_type == "22" and row.courier_id == str(cfg.courier_id) and row.status in {"new", "in_progress"} and row.item_count == 0 and row.number:
+                            top_users = fetch_top_ready_user(cursor, ready_users_query, row.number)
+                            top_user = top_users[0] if top_users else None
+                            if top_user:
+                                ready_users.add(top_user[0])
+                                ready_text = f"{row.number}\n" + "\n".join(f"{login} ({count})" for login, count in top_users)
+                                ready_messages.append((top_user[0], ready_text, "Gotowe do wydania", "max", None))
+                            else:
+                                ready_text = DEFAULT_READY_TEXT.format(row.number)
+                            ready_messages.append((cfg.supervisor_topic, ready_text, "Gotowe do wydania", "max", None))
+                    latest_orders = sorted(
+                        [(row.doc_id, row.number) for row in courier_rows if row.document_type == "7" and row.status == "new" and row.number],
                         key=lambda order: (order[0] is None, order[0] if order[0] is not None else 0, order[1]),
                     )
-                    busy7 = fetch_busy_users(cursor, busy_query)
-                    courier_rows = fetch_courier_rows(cursor, courier_query)
-
-                ready_users: set[str] = set()
-                busy22: set[str] = set()
-                messages: list[tuple[str, str, str, str, str | None]] = []
-                ready_numbers: list[str] = []
-                ready_candidates: set[str] = set()
-                for row in courier_rows:
-                    if row.user_name:
-                        if row.status == "in_progress" and row.item_count > 0:
-                            busy22.add(row.user_name)
-                    if row.doc_id is not None:
-                        changed = courier_changed(state, row.doc_id, row.courier_id, row.status, row.user_name)
-                        if row.document_type == "22" and row.courier_id == str(cfg.courier_id) and row.status != "end" and row.number:
-                            ready_candidates.add(row.number)
-
-                # Typ 22 powtarzamy według ANNOUNCE_INTERVAL, tak jak nowe zamówienia.
-                for number in ready_candidates:
-                    last_sent = last_ready_announcements.get(number)
-                    if last_sent is None or cfg.announce_interval == 0 or now - last_sent >= cfg.announce_interval:
-                        ready_numbers.append(number)
-                for number in set(last_ready_announcements) - ready_candidates:
-                    del last_ready_announcements[number]
-
-                if ready_numbers:
-                    with db.cursor() as cursor:
-                        for number in ready_numbers:
-                            last_ready_announcements[number] = now
-                            top_users = fetch_top_ready_user(cursor, ready_users_query, number)
-                            top_user = top_users[0] if top_users else None
-                            matching_users = {top_user[0]} if top_user else set()
-                            ready_users.update(matching_users)
-                            ready_text = DEFAULT_READY_TEXT.format(number)
-                            if top_user:
-                                login, packaged_count = top_user
-                                users_text = "\n".join(
-                                    f"{login} ({packaged_count})"
-                                    for login, packaged_count in top_users
-                                )
-                                ready_text = f"{number}\n{users_text}"
-                            messages.append((login, ready_text, "Gotowe do wydania", "max", None))
-                            messages.append((cfg.supervisor_topic, ready_text, "Gotowe do wydania", "max", None))
-                            logger.info("Ready order %s; top recipient: %s", number, top_user[0] if top_user else "none")
-
-                # Gotowe do wydania i typ 22 in_progress mają pierwszeństwo nad nowymi.
-                busy = busy7 | busy22 | ready_users
-                if new_orders:
-                    # Wysyłaj jeden dokument na cykl, zaczynając od najstarszego
-                    # (najmniejszy documentId), a potem przechodź do kolejnego.
-                    if last_new_order in new_orders:
-                        previous_index = new_orders.index(last_new_order)
-                        selected_order = new_orders[(previous_index + 1) % len(new_orders)]
-                    else:
-                        selected_order = new_orders[0]
-                    order_id, order_number = selected_order
-                    number = order_number
-                    if messages:
-                        logger.info("New order %s skipped because a ready-order notification has priority", number)
-                    else:
-                        announce = (
-                            selected_order != last_new_order
-                            or cfg.announce_interval == 0
-                            or now - last_new_announcement >= cfg.announce_interval
-                        )
-                        if announce:
-                            last_new_order = selected_order
-                            last_new_announcement = now
-                            click_url = ORDER_URL.format(order_id) if order_id is not None else None
-                            messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url))
-                            for login in users:
-                                if login not in busy:
-                                    messages.append((login, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url))
-                            logger.info("New order %s; free recipients: %d plus supervisor", number, sum(login not in busy for login in users))
-                        else:
-                            logger.info("New order %s; notification skipped (announce interval)", number)
-                else:
-                    last_new_order = None
-                    logger.info("Query OK — no new orders")
-                if cfg.send_text and messages:
-                    await _send_batch(ntfy, messages, cfg.max_notifications_per_batch)
-                next_poll = now + cfg.poll_interval
+                    latest_busy = {
+                        row.user_name for row in courier_rows
+                        if row.user_name and row.status == "in_progress"
+                        and (row.document_type == "7" or (row.document_type == "22" and row.item_count > 0))
+                    } | ready_users
+                    latest_ready_messages = ready_messages
+                logger.info("Poll OK; new orders: %d, busy users: %d", len(latest_orders), len(latest_busy))
+                poll_finished.set()
+                await _sleep_until(stop, cfg.poll_interval)
             except DbError as exc:
                 logger.error("MSSQL error: %s", exc)
                 if db is not None:
@@ -169,9 +109,45 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.exception("Error in main loop")
+                logger.exception("Error in poll loop")
                 await _sleep_until(stop, RECONNECT_DELAY)
+
+    async def announce_loop() -> None:
+        nonlocal last_new_order
+        while not stop.is_set():
+            if cfg.announce_interval == 0:
+                await poll_finished.wait()
+                poll_finished.clear()
+            else:
+                await _sleep_until(stop, cfg.announce_interval)
+            if stop.is_set():
+                break
+            messages = list(latest_ready_messages)
+            if not messages and latest_orders:
+                if last_new_order in latest_orders:
+                    index = latest_orders.index(last_new_order)
+                    selected = latest_orders[(index + 1) % len(latest_orders)]
+                else:
+                    selected = latest_orders[0]
+                last_new_order = selected
+                order_id, order_number = selected
+                click_url = ORDER_URL.format(order_id) if order_id is not None else None
+                messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url))
+                messages.extend((login, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url) for login in users if login not in latest_busy)
+                logger.info("New order %s; free recipients: %d plus supervisor", order_number, sum(login not in latest_busy for login in users))
+            elif not latest_orders:
+                last_new_order = None
+            if cfg.send_text and messages:
+                await _send_batch(ntfy, messages, cfg.max_notifications_per_batch)
+
+    poll_task = asyncio.create_task(poll_loop())
+    announce_task = asyncio.create_task(announce_loop())
+    try:
+        await stop.wait()
     finally:
+        poll_task.cancel()
+        announce_task.cancel()
+        await asyncio.gather(poll_task, announce_task, return_exceptions=True)
         if db is not None:
             db.close()
         state.close()
@@ -187,8 +163,6 @@ def test_db(cfg: SimpleNamespace) -> int:
             cursor.execute("SELECT 1")
             assert cursor.fetchone()[0] == 1
         db.close()
-        load_query()
-        load_query(BUSY_QUERY_FILE)
         load_query(COURIER_QUERY_FILE)
         load_query(READY_USERS_QUERY_FILE)
         load_users(cfg.users_file)
@@ -214,9 +188,10 @@ async def test_new_notification(cfg: SimpleNamespace) -> int:
     try:
         await ntfy.publish_to(
             topic,
-            ORDER_URL.format("TEST-7"),
+            "TEST-7",
             "Nowe zamówienie",
             "default",
+            ORDER_URL.format("TEST-7"),
         )
     except NtfyError as exc:
         logger.error("New notification test FAILED: %s", exc)

@@ -1,3 +1,5 @@
+-- Główne źródło dokumentów dla bota.
+-- Python wyznacza na tej podstawie: zajętość, nowe zamówienia i dokumenty gotowe.
 ;WITH PPP_Agg AS (
     SELECT DocumentId,
            COUNT(*) AS IlePozycji
@@ -20,7 +22,5 @@ LEFT JOIN Core.Users CU
        ON CU.Id = TRY_CONVERT(int, DD.ModifiedBy)
 WHERE DD.DateCreatedUtc >= DATEADD(DAY, -30, GETUTCDATE())
   AND DD.SubType = 50
-  AND (
-        (DD.DocumentType = 22 AND DD.DocumentStatusText IN ('new', 'in_progress') AND ISNULL(PA.IlePozycji, 0) = 0)
-     OR (DD.DocumentType = 7 AND DD.DocumentStatusText = 'new')
-  );
+  AND DD.DocumentType IN (7, 22)
+  AND DD.DocumentStatusText IN ('new', 'in_progress');

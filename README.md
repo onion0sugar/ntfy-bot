@@ -70,9 +70,10 @@ Supervisor powinien zasubskrybować topic wpisany w `SUPERVISOR_TOPIC`.
 
 Dostosuj zapytania do swojej bazy:
 
-- `query.sql` – nowe zamówienia,
-- `query_busy.sql` – zajęci użytkownicy,
-- `query22.sql` – zamówienia gotowe do wydania.
+- `query22.sql` – główne źródło dokumentów typu 7 i 22; bot wyznacza z niego
+  nowe zamówienia, zajętość oraz zamówienia gotowe do wydania.
+- `query.sql` i `query_busy.sql` – starsze zapytania pomocnicze, niewykonywane
+  przez bieżący flow bota.
 
 Skopiuj plik użytkowników i wpisz jeden login w każdej linii:
 

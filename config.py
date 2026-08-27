@@ -52,7 +52,7 @@ def load_config(env_file: str | None = None) -> SimpleNamespace:
         # Zachowanie
         poll_interval=max(1, int(_env("POLL_INTERVAL", "10") or "10")),
         # Co ile sekund powtarzać powiadomienie na własnym zegarze, dopóki
-        # query.sql zwraca wiersz; 0 = wysyłaj raz na POLL_INTERVAL (co poll)
+        # query22.sql zwraca nowe dokumenty; 0 = wysyłaj raz na POLL_INTERVAL (co poll)
         announce_interval=max(0, int(_env("ANNOUNCE_INTERVAL", "30") or "30")),
         send_text=_flag("SEND_TEXT", "true"),
         courier_id=_env("COURIER_ID", "13"),
