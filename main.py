@@ -18,7 +18,6 @@ from users import load_users
 logger = logging.getLogger("bot")
 RECONNECT_DELAY = 5
 DEFAULT_NEW_TEXT = "{}"
-DEFAULT_READY_TEXT = "{}"
 ORDER_URL = "https://it.serwis-kop.pl/magazyn/pl/warehouse/collectingcustomerorders/view/{}"
 
 
@@ -80,13 +79,13 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                         if row.document_type == "22" and row.courier_id == str(cfg.courier_id) and row.status in {"new", "in_progress"} and row.item_count == 0 and row.number:
                             top_users = fetch_top_ready_user(cursor, ready_users_query, row.number)
                             top_user = top_users[0] if top_users else None
+                            ready_text = f"{row.number}\nID dokumentu: {row.doc_id}"
+                            click_url = ORDER_URL.format(row.doc_id) if row.doc_id is not None else None
                             if top_user:
                                 ready_users.add(top_user[0])
-                                ready_text = f"{row.number}\n" + "\n".join(f"{login} ({count})" for login, count in top_users)
-                                ready_messages.append((top_user[0], ready_text, "Gotowe do wydania", "max", None))
-                            else:
-                                ready_text = DEFAULT_READY_TEXT.format(row.number)
-                            ready_messages.append((cfg.supervisor_topic, ready_text, "Gotowe do wydania", "max", None))
+                                ready_text += "\n" + "\n".join(f"{login} ({count})" for login, count in top_users)
+                                ready_messages.append((top_user[0], ready_text, "Gotowe do wydania", "max", click_url))
+                            ready_messages.append((cfg.supervisor_topic, ready_text, "Gotowe do wydania", "max", click_url))
                     latest_orders = sorted(
                         [(row.doc_id, row.number) for row in courier_rows if row.document_type == "7" and row.status == "new" and row.number],
                         key=lambda order: (order[0] is None, order[0] if order[0] is not None else 0, order[1]),
@@ -123,7 +122,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
             if stop.is_set():
                 break
             messages = list(latest_ready_messages)
-            if not messages and latest_orders:
+            if latest_orders:
                 if last_new_order in latest_orders:
                     index = latest_orders.index(last_new_order)
                     selected = latest_orders[(index + 1) % len(latest_orders)]
