@@ -79,7 +79,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                         if row.document_type == "22" and row.courier_id == str(cfg.courier_id) and row.status in {"new", "in_progress"} and row.item_count == 0 and row.number:
                             top_users = fetch_top_ready_user(cursor, ready_users_query, row.number)
                             top_user = top_users[0] if top_users else None
-                            ready_text = f"{row.number}\nID dokumentu: {row.doc_id}"
+                            ready_text = f"ZP: {row.number}"
                             click_url = ORDER_URL.format(row.doc_id) if row.doc_id is not None else None
                             if top_user:
                                 ready_users.add(top_user[0])
