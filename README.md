@@ -68,12 +68,9 @@ Supervisor powinien zasubskrybować topic wpisany w `SUPERVISOR_TOPIC`.
 
 ### 4. Przygotuj pliki projektu
 
-Dostosuj zapytania do swojej bazy:
-
-- `query22.sql` – główne źródło dokumentów typu 7 i 22; bot wyznacza z niego
-  nowe zamówienia, zajętość oraz zamówienia gotowe do wydania.
-- `query.sql` i `query_busy.sql` – starsze zapytania pomocnicze, niewykonywane
-  przez bieżący flow bota.
+Dostosuj zapytania `query22.sql` i `query22_users.sql` do swojej bazy. Pierwsze
+jest głównym źródłem dokumentów typu 7 i 22, a drugie wskazuje użytkownika
+odpowiedzialnego za spakowane pozycje.
 
 Skopiuj plik użytkowników i wpisz jeden login w każdej linii:
 
@@ -105,23 +102,22 @@ Zatrzymanie programu: `Ctrl+C`.
 
 Po każdej zmianie w `.env`, `users.txt` lub plikach `.sql` uruchom program ponownie.
 
-## Uruchomienie bota i ntfy w Dockerze
+## Uruchomienie serwera ntfy w Dockerze
 
-Na serwerze przygotuj pliki i uruchom oba kontenery:
+Na serwerze uruchom serwer ntfy:
 
 ```bash
-cp users.txt.example users.txt
-nano .env
-docker compose up -d --build
+docker compose up -d
 ```
 
 Sprawdzenie działania:
 
 ```bash
 docker compose ps
-docker compose logs -f bot
+docker compose logs -f ntfy
 ```
 
-Bot łączy się z ntfy wewnętrznie przez `http://ntfy:80`, a telefon korzysta
-z adresu ustawionego w `NTFY_BASE_URL` w `docker-compose.yml`. Dane ntfy są w
-`ntfy-data`, a lokalna baza stanu bota w `bot-data`.
+Telefon korzysta z adresu ustawionego w `NTFY_BASE_URL` w `docker-compose.yml`.
+Dane serwera ntfy są przechowywane w katalogu `ntfy-data`.
+
+Bot działa poza Dockerem jako usługa systemd z pliku `ntfy-bot.service`.

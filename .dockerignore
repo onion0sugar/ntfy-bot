@@ -1,9 +1,0 @@
-.git
-.venv
-__pycache__
-*.pyc
-.env
-state.db
-bot-data
-ntfy-data
-tests

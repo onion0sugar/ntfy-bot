@@ -20,7 +20,6 @@ except ImportError:
 logger = logging.getLogger("db")
 
 QUERY_FILE = "query.sql"
-BUSY_QUERY_FILE = "query_busy.sql"
 COURIER_QUERY_FILE = "query22.sql"
 READY_USERS_QUERY_FILE = "query22_users.sql"
 

@@ -1,5 +1,7 @@
 # Sekrety — nigdy do repozytorium
 .env
+users.txt
+users.txt
 
 # Python
 __pycache__/
@@ -8,6 +10,14 @@ __pycache__/
 venv/
 .pytest_cache/
 *.egg-info/
+.pytest-tmp/
+state.db
+ntfy-data/
+bot-data/
+.pytest-tmp/
+state.db
+ntfy-data/
+bot-data/
 REASONIX.md
 # System
 .DS_Store
