@@ -22,6 +22,7 @@ logger = logging.getLogger("db")
 QUERY_FILE = "query.sql"
 COURIER_QUERY_FILE = "query22.sql"
 READY_USERS_QUERY_FILE = "query22_users.sql"
+WORK_TODAY_USERS_QUERY_FILE = "work_today_users.sql"
 
 
 class DbError(Exception):
@@ -185,6 +186,19 @@ def fetch_column_rows(cursor, query: str, required: tuple[str, ...], params: tup
 
 def fetch_busy_users(cursor, query: str) -> set[str]:
     return {str(row["username"]).strip() for row in fetch_column_rows(cursor, query, ("username",)) if row["username"]}
+
+
+def fetch_work_today_users(cursor, query: str, users: set[str]) -> set[str]:
+    """Return users from users.txt who modified a document today."""
+    if not users:
+        return set()
+    placeholders = ", ".join("?" for _ in users)
+    try:
+        cursor.execute(query.replace("{usernames}", placeholders), tuple(sorted(users)))
+        rows = cursor.fetchall()
+    except Exception as exc:
+        raise DbError(f"Query failed: {exc}") from exc
+    return {str(row[0]).strip() for row in rows if row and row[0]}
 
 
 def fetch_top_ready_user(cursor, query: str, original_number: str) -> list[tuple[str, int, int]]:

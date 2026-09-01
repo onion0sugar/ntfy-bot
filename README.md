@@ -80,6 +80,11 @@ cp users.txt.example users.txt
 
 Każdy użytkownik ma jeden topic równy jego loginowi MSSQL. Nowe zamówienie jest
 wysyłane z priorytetem `default`, a gotowe zamówienie z priorytetem `max`.
+Nowe zamówienia są wysyłane tylko do użytkowników z `users.txt`, którzy
+zmodyfikowali dziś co najmniej jeden dokument (`work_today_users.sql`); supervisor
+otrzymuje powiadomienie niezależnie od tego.
+Wyjątkiem są powiadomienia „Gotowe do wydania”: użytkownik z `users.txt`, który
+ma takie zamówienie, otrzyma je również bez wpisu w `work_today_users.sql`.
 Jeśli w tym samym pollingu wykryto gotowe zamówienie, powiadomienie o nowym
 zamówieniu nie jest wysyłane. Lista z `users.txt` jest wczytywana tylko przy starcie.
 

@@ -10,7 +10,7 @@ import time
 from types import SimpleNamespace
 
 from config import ConfigError, load_config
-from db import COURIER_QUERY_FILE, READY_USERS_QUERY_FILE, DbError, connect_db, fetch_courier_rows, fetch_top_ready_user, load_query
+from db import COURIER_QUERY_FILE, READY_USERS_QUERY_FILE, WORK_TODAY_USERS_QUERY_FILE, DbError, connect_db, fetch_courier_rows, fetch_top_ready_user, fetch_work_today_users, load_query
 from ntfy import Ntfy, NtfyError
 from state import courier_changed, open_state
 from users import load_users
@@ -46,6 +46,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
     stop = stop or asyncio.Event()
     courier_query = load_query(COURIER_QUERY_FILE)
     ready_users_query = load_query(READY_USERS_QUERY_FILE)
+    work_today_users_query = load_query(WORK_TODAY_USERS_QUERY_FILE)
     users = load_users(cfg.users_file)
     state = open_state(cfg.state_file)
     ntfy = Ntfy(cfg)
@@ -59,18 +60,20 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
 
     latest_orders: list[tuple[int | None, str]] = []
     latest_busy: set[str] = set()
+    latest_work_today: set[str] = set()
     latest_ready_messages: list[tuple[str, str, str, str, str | None]] = []
     poll_finished = asyncio.Event()
     last_new_order: tuple[int | None, str] | None = None
 
     async def poll_loop() -> None:
-        nonlocal db, latest_orders, latest_busy, latest_ready_messages
+        nonlocal db, latest_orders, latest_busy, latest_ready_messages, latest_work_today
         while not stop.is_set():
             try:
                 if db is None:
                     db = connect_db(cfg)
                 with db.cursor() as cursor:
                     courier_rows = fetch_courier_rows(cursor, courier_query)
+                    latest_work_today = fetch_work_today_users(cursor, work_today_users_query, users)
                     ready_messages: list[tuple[str, str, str, str, str | None]] = []
                     ready_users: set[str] = set()
                     for row in courier_rows:
@@ -84,7 +87,8 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                             if top_user:
                                 ready_users.add(top_user[0])
                                 ready_text += "\n" + "\n".join(f"{login} ({count})" for login, count, _document_id in top_users)
-                                ready_messages.append((top_user[0], ready_text, "Gotowe do wydania", "max", click_url))
+                                if top_user[0] in users:
+                                    ready_messages.append((top_user[0], ready_text, "Gotowe do wydania", "max", click_url))
                             ready_messages.append((cfg.supervisor_topic, ready_text, "Gotowe do wydania", "max", click_url))
                     latest_orders = sorted(
                         [(row.doc_id, row.number) for row in courier_rows if row.document_type == "7" and row.status == "new" and row.number],
@@ -132,8 +136,8 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 order_id, order_number = selected
                 click_url = ORDER_URL.format(order_id) if order_id is not None else None
                 messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url))
-                messages.extend((login, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url) for login in users if login not in latest_busy)
-                logger.info("New order %s; free recipients: %d plus supervisor", order_number, sum(login not in latest_busy for login in users))
+                messages.extend((login, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url) for login in users if login in latest_work_today and login not in latest_busy)
+                logger.info("New order %s; working today: %d, free recipients: %d plus supervisor", order_number, len(latest_work_today), sum(login in latest_work_today and login not in latest_busy for login in users))
             elif not latest_orders:
                 last_new_order = None
             if cfg.send_text and messages:
