@@ -100,7 +100,17 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                         and (row.document_type == "7" or (row.document_type == "22" and row.item_count > 0))
                     } | ready_users
                     latest_ready_messages = ready_messages
-                logger.info("Poll OK; new orders: %d, busy users: %d", len(latest_orders), len(latest_busy))
+                free_recipients = sum(
+                    login in latest_work_today and login not in latest_busy
+                    for login in users
+                )
+                logger.info(
+                    "Poll OK; new orders: %d, busy users: %d, working today: %d, free recipients: %d",
+                    len(latest_orders),
+                    len(latest_busy),
+                    len(latest_work_today),
+                    free_recipients,
+                )
                 poll_finished.set()
                 await _sleep_until(stop, cfg.poll_interval)
             except DbError as exc:
@@ -137,7 +147,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 click_url = ORDER_URL.format(order_id) if order_id is not None else None
                 messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url))
                 messages.extend((login, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url) for login in users if login in latest_work_today and login not in latest_busy)
-                logger.info("New order %s; working today: %d, free recipients: %d plus supervisor", order_number, len(latest_work_today), sum(login in latest_work_today and login not in latest_busy for login in users))
+                logger.info("New order %s", order_number)
             elif not latest_orders:
                 last_new_order = None
             if cfg.send_text and messages:
