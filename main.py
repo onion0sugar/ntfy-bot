@@ -105,7 +105,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                     for login in users
                 )
                 logger.info(
-                    "Poll OK; new orders: %d, busy users: %d, working today: %d, free recipients: %d",
+                    "Poll OK; new orders: %d, busy: %d, working: %d, free: %d",
                     len(latest_orders),
                     len(latest_busy),
                     len(latest_work_today),
