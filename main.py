@@ -145,9 +145,10 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 last_new_order = selected
                 order_id, order_number, zone_group_id = selected
                 click_url = ORDER_URL.format(order_id) if order_id is not None else None
+                order_text = f"{order_number} (grupa: {zone_group_id if zone_group_id is not None else 'brak'})"
                 messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url))
                 messages.extend((login, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url) for login in users if login in latest_work_today and login not in latest_busy and zone_group_id is not None and zone_group_id <= latest_work_today[login])
-                logger.info("New order %s", order_number)
+                logger.info("New order %s, grupa: %s", order_number, zone_group_id if zone_group_id is not None else "brak")
             elif not latest_orders:
                 last_new_order = None
             if cfg.send_text and messages:
