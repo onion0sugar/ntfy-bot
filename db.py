@@ -166,6 +166,7 @@ class CourierRow:
     status: str
     user_name: str
     item_count: int
+    zone_group_id: int | None
 
 
 def fetch_column_rows(cursor, query: str, required: tuple[str, ...], params: tuple[object, ...] = ()) -> list[dict[str, object]]:
@@ -188,17 +189,25 @@ def fetch_busy_users(cursor, query: str) -> set[str]:
     return {str(row["username"]).strip() for row in fetch_column_rows(cursor, query, ("username",)) if row["username"]}
 
 
-def fetch_work_today_users(cursor, query: str, users: set[str]) -> set[str]:
-    """Return users from users.txt who modified a document today."""
+def fetch_work_today_users(cursor, query: str, users: set[str]) -> dict[str, int]:
+    """Return active users and their highest assigned zone group."""
     if not users:
-        return set()
+        return {}
     placeholders = ", ".join("?" for _ in users)
     try:
         cursor.execute(query.replace("{usernames}", placeholders), tuple(sorted(users)))
         rows = cursor.fetchall()
     except Exception as exc:
         raise DbError(f"Query failed: {exc}") from exc
-    return {str(row[0]).strip() for row in rows if row and row[0]}
+    result: dict[str, int] = {}
+    for row in rows:
+        if not row or not row[0] or row[1] is None:
+            continue
+        try:
+            result[str(row[0]).strip()] = int(row[1])
+        except (TypeError, ValueError):
+            continue
+    return result
 
 
 def fetch_top_ready_user(cursor, query: str, original_number: str) -> list[tuple[str, int, int]]:
@@ -220,7 +229,7 @@ def fetch_top_ready_user(cursor, query: str, original_number: str) -> list[tuple
 
 
 def fetch_courier_rows(cursor, query: str) -> list[CourierRow]:
-    rows = fetch_column_rows(cursor, query, ("id", "originalnumber", "documenttype", "courierid", "documentstatustext", "username", "ilepozycji"))
+    rows = fetch_column_rows(cursor, query, ("id", "originalnumber", "documenttype", "courierid", "documentstatustext", "username", "ilepozycji", "zonegroupid"))
     result = []
     for row in rows:
         try:
@@ -231,5 +240,9 @@ def fetch_courier_rows(cursor, query: str) -> list[CourierRow]:
             item_count = int(row["ilepozycji"] or 0)
         except (TypeError, ValueError):
             item_count = 0
-        result.append(CourierRow(doc_id, str(row["originalnumber"] or "").strip(), str(row["documenttype"] or "").strip(), str(row["courierid"] or "").strip(), str(row["documentstatustext"] or "").strip().lower().replace(" ", "_"), str(row["username"] or "").strip(), item_count))
+        try:
+            zone_group_id = int(row["zonegroupid"]) if row["zonegroupid"] is not None else None
+        except (TypeError, ValueError):
+            zone_group_id = None
+        result.append(CourierRow(doc_id, str(row["originalnumber"] or "").strip(), str(row["documenttype"] or "").strip(), str(row["courierid"] or "").strip(), str(row["documentstatustext"] or "").strip().lower().replace(" ", "_"), str(row["username"] or "").strip(), item_count, zone_group_id))
     return result

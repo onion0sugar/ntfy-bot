@@ -16,9 +16,22 @@
 -- sortowania / warunku dostosuj do swojej tabeli.
 -- ============================================================================
 
-SELECT DD.Id, DD.OriginalNumber
+SELECT DD.Id,
+       DD.OriginalNumber,
+       ZG.ZoneGroupId
   FROM [SerwisKop_Magazyn].[Document].[Documents] DD
+  OUTER APPLY (
+      SELECT TOP (1)
+             ZGZ.ZoneGroupId
+        FROM [SerwisKop_Magazyn].[Document].[DocumentPositions] DP
+        LEFT JOIN [Stillage].[StillageSpaces] SS
+          ON DP.FromStillageSpaceId = SS.Id
+        LEFT JOIN [SerwisKop_Magazyn].[Zone].[ZoneGroupZones] ZGZ
+          ON SS.ZoneId = ZGZ.ZoneId
+       WHERE DP.DocumentId = DD.Id
+       ORDER BY DP.Id
+  ) ZG
   WHERE DocumentType = 7
   AND DD.DateCreatedUtc >= DATEADD(DAY, -30, GETUTCDATE())
-  AND DocumentStatusText = 'new'
+  AND DocumentStatusText = 'in_progress'
   AND SubType = 50

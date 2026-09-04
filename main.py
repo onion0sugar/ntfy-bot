@@ -58,12 +58,12 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
         except NotImplementedError:
             pass
 
-    latest_orders: list[tuple[int | None, str]] = []
+    latest_orders: list[tuple[int | None, str, int | None]] = []
     latest_busy: set[str] = set()
-    latest_work_today: set[str] = set()
+    latest_work_today: dict[str, int] = {}
     latest_ready_messages: list[tuple[str, str, str, str, str | None]] = []
     poll_finished = asyncio.Event()
-    last_new_order: tuple[int | None, str] | None = None
+    last_new_order: tuple[int | None, str, int | None] | None = None
 
     async def poll_loop() -> None:
         nonlocal db, latest_orders, latest_busy, latest_ready_messages, latest_work_today
@@ -91,7 +91,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                                     ready_messages.append((top_user[0], ready_text, "Gotowe do wydania", "max", click_url))
                             ready_messages.append((cfg.supervisor_topic, ready_text, "Gotowe do wydania", "max", click_url))
                     latest_orders = sorted(
-                        [(row.doc_id, row.number) for row in courier_rows if row.document_type == "7" and row.status == "new" and row.number],
+                        [(row.doc_id, row.number, row.zone_group_id) for row in courier_rows if row.document_type == "7" and row.status == "new" and row.number],
                         key=lambda order: (order[0] is None, order[0] if order[0] is not None else 0, order[1]),
                     )
                     latest_busy = {
@@ -143,10 +143,10 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 else:
                     selected = latest_orders[0]
                 last_new_order = selected
-                order_id, order_number = selected
+                order_id, order_number, zone_group_id = selected
                 click_url = ORDER_URL.format(order_id) if order_id is not None else None
                 messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url))
-                messages.extend((login, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url) for login in users if login in latest_work_today and login not in latest_busy)
+                messages.extend((login, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url) for login in users if login in latest_work_today and login not in latest_busy and zone_group_id is not None and zone_group_id <= latest_work_today[login])
                 logger.info("New order %s", order_number)
             elif not latest_orders:
                 last_new_order = None

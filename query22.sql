@@ -12,8 +12,19 @@ SELECT DD.Id,
        CONF.CourierId,
        DD.DocumentStatusText,
        COALESCE(CU.UserName, CONVERT(nvarchar(255), DD.ModifiedBy)) AS UserName,
-       ISNULL(PA.IlePozycji, 0) AS IlePozycji
+       ISNULL(PA.IlePozycji, 0) AS IlePozycji,
+       ZG.ZoneGroupId
 FROM [SerwisKop_Magazyn].[Document].[Documents] DD
+OUTER APPLY (
+    SELECT TOP (1) ZGZ.ZoneGroupId
+    FROM [SerwisKop_Magazyn].[Document].[DocumentPositions] DP
+    LEFT JOIN [Stillage].[StillageSpaces] SS
+           ON DP.FromStillageSpaceId = SS.Id
+    LEFT JOIN [SerwisKop_Magazyn].[Zone].[ZoneGroupZones] ZGZ
+           ON SS.ZoneId = ZGZ.ZoneId
+    WHERE DP.DocumentId = DD.Id
+    ORDER BY DP.Id
+) ZG
 LEFT JOIN PPP_Agg PA
        ON PA.DocumentId = DD.Id
 LEFT JOIN [SerwisKop_Magazyn].[Document].[CustomerOrderDocumentConfigurations] CONF
