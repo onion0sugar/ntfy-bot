@@ -31,7 +31,13 @@ def build_new_order_messages(
 ) -> list[tuple[str, str, str, str, str | None]]:
     """Zbuduj osobne powiadomienie dla każdego zamówienia i odbiorcy."""
     messages: list[tuple[str, str, str, str, str | None]] = []
+    notified_groups: set[int | None] = set()
     for order_id, order_number, zone_group_id in orders:
+        # `orders` są posortowane od najstarszego. Dla jednej grupy
+        # powiadamiamy tylko o pierwszym (najstarszym) zamówieniu.
+        if zone_group_id in notified_groups:
+            continue
+        notified_groups.add(zone_group_id)
         click_url = ORDER_URL.format(order_id) if order_id is not None else None
         displayed_number = f"{order_number} (grupa: {zone_group_id if zone_group_id is not None else 'brak'})"
         text = DEFAULT_NEW_TEXT.format(displayed_number)
