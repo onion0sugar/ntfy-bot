@@ -21,6 +21,30 @@ DEFAULT_NEW_TEXT = "{}"
 ORDER_URL = "https://it.serwis-kop.pl/magazyn/pl/warehouse/collectingcustomerorders/view/{}"
 
 
+def build_new_order_messages(
+    orders: list[tuple[int | None, str, int | None]],
+    users: set[str],
+    work_today: dict[str, int],
+    busy: set[str],
+    supervisor_topic: str,
+) -> list[tuple[str, str, str, str, str | None]]:
+    """Zbuduj osobne powiadomienie dla każdego zamówienia i odbiorcy."""
+    messages: list[tuple[str, str, str, str, str | None]] = []
+    for order_id, order_number, zone_group_id in orders:
+        click_url = ORDER_URL.format(order_id) if order_id is not None else None
+        displayed_number = f"{order_number} (grupa: {zone_group_id if zone_group_id is not None else 'brak'})"
+        text = DEFAULT_NEW_TEXT.format(displayed_number)
+        messages.append((supervisor_topic, text, "Nowe zamówienie", "default", click_url))
+        if zone_group_id is None:
+            continue
+        messages.extend(
+            (login, text, "Nowe zamówienie", "default", click_url)
+            for login in users
+            if login in work_today and login not in busy and zone_group_id <= work_today[login]
+        )
+    return messages
+
+
 async def _sleep_until(stop: asyncio.Event, seconds: float) -> None:
     try:
         await asyncio.wait_for(stop.wait(), timeout=seconds)
@@ -63,7 +87,6 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
     latest_work_today: dict[str, int] = {}
     latest_ready_messages: list[tuple[str, str, str, str, str | None]] = []
     poll_finished = asyncio.Event()
-    last_new_order: tuple[int | None, str, int | None] | None = None
 
     async def poll_loop() -> None:
         nonlocal db, latest_orders, latest_busy, latest_ready_messages, latest_work_today
@@ -126,7 +149,6 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 await _sleep_until(stop, RECONNECT_DELAY)
 
     async def announce_loop() -> None:
-        nonlocal last_new_order
         while not stop.is_set():
             if cfg.announce_interval == 0:
                 await poll_finished.wait()
@@ -137,20 +159,15 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 break
             messages = list(latest_ready_messages)
             if latest_orders:
-                if last_new_order in latest_orders:
-                    index = latest_orders.index(last_new_order)
-                    selected = latest_orders[(index + 1) % len(latest_orders)]
-                else:
-                    selected = latest_orders[0]
-                last_new_order = selected
-                order_id, order_number, zone_group_id = selected
-                click_url = ORDER_URL.format(order_id) if order_id is not None else None
-                order_number = f"{order_number} (grupa: {zone_group_id if zone_group_id is not None else 'brak'})"
-                messages.append((cfg.supervisor_topic, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url))
-                messages.extend((login, DEFAULT_NEW_TEXT.format(order_number), "Nowe zamówienie", "default", click_url) for login in users if login in latest_work_today and login not in latest_busy and zone_group_id is not None and zone_group_id <= latest_work_today[login])
-                logger.info("New order %s", order_number)
-            elif not latest_orders:
-                last_new_order = None
+                # Każde zamówienie wysyłamy osobno. Dzięki temu przy kilku
+                # zamówieniach w różnych grupach odbiorca dostaje tylko te,
+                # które może obsłużyć (np. grupa 1 nie dostanie grupy 2).
+                order_messages = build_new_order_messages(
+                    latest_orders, users, latest_work_today, latest_busy, cfg.supervisor_topic
+                )
+                messages.extend(order_messages)
+                for _topic, text, _title, _priority, _click_url in order_messages:
+                    logger.info("%s", text)
             if cfg.send_text and messages:
                 await _send_batch(ntfy, messages, cfg.max_notifications_per_batch)
 
