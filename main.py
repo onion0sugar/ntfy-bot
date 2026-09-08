@@ -7,6 +7,7 @@ import logging
 import signal
 import sys
 import time
+from collections import Counter
 from types import SimpleNamespace
 
 from config import ConfigError, load_config
@@ -127,11 +128,16 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                     login in latest_work_today and login not in latest_busy
                     for login in users
                 )
+                working_by_group = Counter(latest_work_today.values())
+                working_groups = ", ".join(
+                    f"{group}:{working_by_group[group]}"
+                    for group in sorted(working_by_group)
+                ) or "brak"
                 logger.info(
-                    "Poll OK; new orders: %d, busy: %d, working: %d, free: %d",
+                    "Poll OK; new orders: %d, busy: %d, working: %s, free: %d",
                     len(latest_orders),
                     len(latest_busy),
-                    len(latest_work_today),
+                    working_groups,
                     free_recipients,
                 )
                 poll_finished.set()
