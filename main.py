@@ -259,12 +259,49 @@ async def test_ready_notification(cfg: SimpleNamespace) -> int:
     return 0
 
 
+async def test_notification(cfg: SimpleNamespace, topic: str, priority: str) -> int:
+    """Wyślij ręczne powiadomienie testowe na wskazany topic i z priorytetem."""
+    allowed_priorities = {"min", "low", "default", "high", "max", "1", "2", "3", "4", "5"}
+    if not topic.strip() or any(ch.isspace() for ch in topic):
+        logger.error("Notification test FAILED: topic nie może być pusty ani zawierać spacji")
+        return 2
+    if priority.lower() not in allowed_priorities:
+        logger.error(
+            "Notification test FAILED: nieprawidłowy priorytet %r "
+            "(dozwolone: min, low, default, high, max lub 1-5)",
+            priority,
+        )
+        return 2
+
+    ntfy = Ntfy(cfg)
+    try:
+        await ntfy.publish_to(
+            topic,
+            f"Testowe powiadomienie (priorytet: {priority})",
+            "Test ntfy",
+            priority.lower(),
+        )
+    except NtfyError as exc:
+        logger.error("Notification test FAILED: %s", exc)
+        return 1
+    finally:
+        await ntfy.close()
+    logger.info("Notification test OK: sent to %s with priority %s", topic, priority.lower())
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="MSSQL -> ntfy")
     parser.add_argument("--test-db", action="store_true")
     parser.add_argument("--test-ntfy", "--test-text", dest="test_ntfy", action="store_true")
     parser.add_argument("--test-new", action="store_true")
     parser.add_argument("--test-ready", action="store_true")
+    parser.add_argument(
+        "--test-notification",
+        nargs=2,
+        metavar=("TOPIC", "PRIORITY"),
+        help="wyślij testowe powiadomienie: TOPIC PRIORITY (np. moj-topic max)",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     try:
@@ -280,6 +317,9 @@ def main() -> int:
         return asyncio.run(test_new_notification(cfg))
     if args.test_ready:
         return asyncio.run(test_ready_notification(cfg))
+    if args.test_notification:
+        topic, priority = args.test_notification
+        return asyncio.run(test_notification(cfg, topic, priority))
     try:
         return asyncio.run(run_service(cfg))
     except KeyboardInterrupt:

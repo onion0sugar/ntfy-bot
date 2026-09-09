@@ -95,7 +95,11 @@ python main.py --test-db
 python main.py --test-ntfy
 python main.py --test-new
 python main.py --test-ready
+python main.py --test-notification moj-topic max
 ```
+
+`--test-notification` przyjmuje topic i priorytet. Dozwolone priorytety to
+`min`, `low`, `default`, `high`, `max` oraz wartości liczbowe `1`–`5`.
 
 Jeśli testy zakończą się poprawnie, uruchom bota:
 

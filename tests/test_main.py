@@ -1,3 +1,7 @@
+import asyncio
+from types import SimpleNamespace
+
+import main
 from main import build_new_order_messages
 
 
@@ -31,3 +35,29 @@ def test_same_zone_group_only_oldest_order_is_sent():
     assert any("STARSZE" in text for text in texts)
     assert not any("NOWSZE" in text for text in texts)
     assert any("INNA-GRUPA" in text for text in texts)
+
+
+def test_test_notification_sends_topic_and_priority(monkeypatch):
+    sent = []
+
+    class FakeNtfy:
+        def __init__(self, cfg):
+            pass
+
+        async def publish_to(self, *args):
+            sent.append(args)
+
+        async def close(self):
+            pass
+
+    monkeypatch.setattr(main, "Ntfy", FakeNtfy)
+    result = asyncio.run(main.test_notification(SimpleNamespace(), "test-topic", "MAX"))
+
+    assert result == 0
+    assert sent == [("test-topic", "Testowe powiadomienie (priorytet: MAX)", "Test ntfy", "max")]
+
+
+def test_test_notification_rejects_invalid_priority():
+    result = asyncio.run(main.test_notification(SimpleNamespace(), "test-topic", "urgent"))
+
+    assert result == 2
