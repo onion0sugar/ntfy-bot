@@ -69,7 +69,7 @@ Supervisor powinien zasubskrybować topic wpisany w `SUPERVISOR_TOPIC`.
 ### 4. Przygotuj pliki projektu
 
 Dostosuj zapytania `query22.sql` i `query22_users.sql` do swojej bazy. Pierwsze
-jest głównym źródłem dokumentów typu 7 i 22, a drugie wskazuje użytkownika
+ jest głównym źródłem dokumentów typu 7 i 22, a drugie wskazuje użytkownika
 odpowiedzialnego za spakowane pozycje.
 
 Skopiuj plik użytkowników i wpisz jeden login w każdej linii:
@@ -79,7 +79,7 @@ cp users.txt.example users.txt
 ```
 
 Każdy użytkownik ma jeden topic równy jego loginowi MSSQL. Nowe zamówienie jest
-wysyłane z priorytetem `default`, a gotowe zamówienie z priorytetem `max`.
+wysyłane z priorytetem `high`, a gotowe zamówienie z priorytetem `max`.
 Nowe zamówienia są wysyłane tylko do użytkowników z `users.txt`, którzy
 zmodyfikowali dziś co najmniej jeden dokument (`work_today_users.sql`); supervisor
 otrzymuje powiadomienie niezależnie od tego.

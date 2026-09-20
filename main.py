@@ -41,11 +41,11 @@ def build_new_order_messages(
         click_url = ORDER_URL.format(order_id) if order_id is not None else None
         displayed_number = f"{order_number} (grupa: {zone_group_id if zone_group_id is not None else 'brak'})"
         text = DEFAULT_NEW_TEXT.format(displayed_number)
-        messages.append((supervisor_topic, text, "Nowe zamówienie", "default", click_url))
+        messages.append((supervisor_topic, text, "Nowe zamówienie", "high", click_url))
         if zone_group_id is None:
             continue
         messages.extend(
-            (login, text, "Nowe zamówienie", "default", click_url)
+            (login, text, "Nowe zamówienie", "high", click_url)
             for login in users
             if login in work_today and login not in busy and zone_group_id <= work_today[login]
         )
@@ -233,7 +233,7 @@ async def test_new_notification(cfg: SimpleNamespace) -> int:
             topic,
             "TEST-7",
             "Nowe zamówienie",
-            "default",
+            "high",
             ORDER_URL.format("TEST-7"),
         )
     except NtfyError as exc:

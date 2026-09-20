@@ -20,6 +20,7 @@ def test_new_orders_are_split_by_zone_group():
     }
     assert recipients_by_order["ZAM-1"] == {"supervisor", "grupa1", "grupa2", "grupa3"}
     assert recipients_by_order["ZAM-2"] == {"supervisor", "grupa2", "grupa3"}
+    assert {priority for _topic, _text, _title, priority, _click in messages} == {"high"}
 
 
 def test_same_zone_group_only_oldest_order_is_sent():
