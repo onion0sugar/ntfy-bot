@@ -29,27 +29,63 @@ def build_new_order_messages(
     busy: set[str],
     supervisor_topic: str,
 ) -> list[tuple[str, str, str, str, str | None]]:
-    """Zbuduj osobne powiadomienie dla każdego zamówienia i odbiorcy."""
+    """Zbuduj powiadomienia, wybierając najwyższą kwalifikującą się grupę."""
     messages: list[tuple[str, str, str, str, str | None]] = []
     notified_groups: set[int | None] = set()
+    orders_to_notify: list[tuple[int | None, str, int]] = []
+    supervisor_notifications: list[tuple[str, str | None]] = []
     for order_id, order_number, zone_group_id in orders:
         # `orders` są posortowane od najstarszego. Dla jednej grupy
         # powiadamiamy tylko o pierwszym (najstarszym) zamówieniu.
         if zone_group_id in notified_groups:
             continue
         notified_groups.add(zone_group_id)
+        if zone_group_id is not None:
+            orders_to_notify.append((order_id, order_number, zone_group_id))
         click_url = ORDER_URL.format(order_id) if order_id is not None else None
         displayed_number = f"{order_number} (grupa: {zone_group_id if zone_group_id is not None else 'brak'})"
         text = DEFAULT_NEW_TEXT.format(displayed_number)
-        messages.append((supervisor_topic, text, "Nowe zamówienie", "high", click_url))
+        supervisor_notifications.append((text, click_url))
         if zone_group_id is None:
             continue
-        messages.extend(
-            (login, text, "Nowe zamówienie", "high", click_url)
-            for login in users
-            if login in work_today and login not in busy and zone_group_id <= work_today[login]
+
+    if supervisor_notifications:
+        supervisor_text = "\n".join(text for text, _click_url in supervisor_notifications)
+        supervisor_click = supervisor_notifications[0][1] if len(supervisor_notifications) == 1 else None
+        messages.append((supervisor_topic, supervisor_text, "Nowe zamówienia", "high", supervisor_click))
+
+    for login in users:
+        if login not in work_today or login in busy:
+            continue
+        eligible_order = max(
+            (order for order in orders_to_notify if order[2] <= work_today[login]),
+            key=lambda order: order[2],
+            default=None,
         )
+        if eligible_order is None:
+            continue
+        order_id, order_number, zone_group_id = eligible_order
+        click_url = ORDER_URL.format(order_id) if order_id is not None else None
+        displayed_number = f"{order_number} (grupa: {zone_group_id})"
+        text = DEFAULT_NEW_TEXT.format(displayed_number)
+        messages.append((login, text, "Nowe zamówienie", "high", click_url))
     return messages
+
+
+def merge_supervisor_messages(
+    messages: list[tuple[str, str, str, str, str | None]],
+    supervisor_topic: str,
+) -> list[tuple[str, str, str, str, str | None]]:
+    """Połącz wszystkie komunikaty nadzorcy w jedno powiadomienie."""
+    supervisor_messages = [message for message in messages if message[0] == supervisor_topic]
+    if len(supervisor_messages) <= 1:
+        return messages
+
+    remaining_messages = [message for message in messages if message[0] != supervisor_topic]
+    supervisor_text = "\n\n".join(message[1] for message in supervisor_messages)
+    priority = "max" if any(message[3] == "max" for message in supervisor_messages) else "high"
+    remaining_messages.append((supervisor_topic, supervisor_text, "Nowe zamówienia", priority, None))
+    return remaining_messages
 
 
 async def _sleep_until(stop: asyncio.Event, seconds: float) -> None:
@@ -180,6 +216,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                 messages.extend(order_messages)
                 for _topic, text, _title, _priority, _click_url in order_messages:
                     logger.info("%s", text)
+            messages = merge_supervisor_messages(messages, cfg.supervisor_topic)
             if cfg.send_text and messages:
                 await _send_batch(ntfy, messages, cfg.max_notifications_per_batch)
 
