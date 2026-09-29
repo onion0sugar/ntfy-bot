@@ -97,7 +97,6 @@ async def _sleep_until(stop: asyncio.Event, seconds: float) -> None:
 
 async def _send_batch(ntfy: Ntfy, messages: list[tuple[str, str, str, str, str | None]]) -> None:
     for item in messages:
-        logger.info("Sending notification to ntfy topic %s", item[0])
         try:
             await ntfy.publish_to(*item)
         except Exception as exc:

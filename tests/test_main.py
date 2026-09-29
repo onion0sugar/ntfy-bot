@@ -114,15 +114,10 @@ def test_send_batch_publishes_notifications_sequentially(caplog):
 
     assert sent == messages
     assert max_active == 1
-    assert [
-        record.getMessage()
+    assert not any(
+        record.getMessage().startswith("Sending notification to ntfy topic ")
         for record in caplog.records
-        if record.getMessage().startswith("Sending notification to ntfy topic ")
-    ] == [
-        "Sending notification to ntfy topic user1",
-        "Sending notification to ntfy topic user2",
-        "Sending notification to ntfy topic user3",
-    ]
+    )
 
 
 def test_test_notification_sends_topic_and_priority(monkeypatch):
