@@ -209,8 +209,12 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                     latest_orders, users, latest_work_today, latest_busy, cfg.supervisor_topic
                 )
                 messages.extend(order_messages)
-                for _topic, text, _title, _priority, _click_url in order_messages:
-                    logger.info("%s", text)
+                order_summary = next(
+                    (text for topic, text, _title, _priority, _click_url in order_messages if topic == cfg.supervisor_topic),
+                    None,
+                )
+                if order_summary:
+                    logger.info("Nowe zamówienia: %s", order_summary)
             messages = merge_supervisor_messages(messages, cfg.supervisor_topic)
             if cfg.send_text and messages:
                 await _send_batch(ntfy, messages)
