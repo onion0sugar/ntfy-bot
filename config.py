@@ -56,5 +56,4 @@ def load_config(env_file: str | None = None) -> SimpleNamespace:
         announce_interval=max(0, int(_env("ANNOUNCE_INTERVAL", "30") or "30")),
         send_text=_flag("SEND_TEXT", "true"),
         courier_id=_env("COURIER_ID", "13"),
-        max_notifications_per_batch=max(1, int(_env("MAX_NOTIFICATIONS_PER_BATCH", "3") or "3")),
     )

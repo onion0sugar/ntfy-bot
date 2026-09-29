@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from types import SimpleNamespace
 
 import main
@@ -85,6 +86,42 @@ def test_supervisor_receives_new_and_ready_orders_in_one_notification():
             "max",
             None,
         )
+    ]
+
+
+def test_send_batch_publishes_notifications_sequentially(caplog):
+    caplog.set_level(logging.INFO, logger="bot")
+    sent = []
+    active = 0
+    max_active = 0
+
+    class FakeNtfy:
+        async def publish_to(self, *message):
+            nonlocal active, max_active
+            active += 1
+            max_active = max(max_active, active)
+            await asyncio.sleep(0)
+            sent.append(message)
+            active -= 1
+
+    messages = [
+        ("user1", "first", "title", "high", None),
+        ("user2", "second", "title", "high", None),
+        ("user3", "third", "title", "high", None),
+    ]
+
+    asyncio.run(main._send_batch(FakeNtfy(), messages))
+
+    assert sent == messages
+    assert max_active == 1
+    assert [
+        record.getMessage()
+        for record in caplog.records
+        if record.getMessage().startswith("Sending notification to ntfy topic ")
+    ] == [
+        "Sending notification to ntfy topic user1",
+        "Sending notification to ntfy topic user2",
+        "Sending notification to ntfy topic user3",
     ]
 
 

@@ -95,18 +95,13 @@ async def _sleep_until(stop: asyncio.Event, seconds: float) -> None:
         pass
 
 
-async def _send_batch(ntfy: Ntfy, messages: list[tuple[str, str, str, str, str | None]], limit: int) -> None:
-    semaphore = asyncio.Semaphore(limit)
-
-    async def send(topic: str, text: str, title: str, priority: str, click: str | None) -> None:
-        async with semaphore:
-            await ntfy.publish_to(topic, text, title, priority, click)
-
-    for start in range(0, len(messages), limit):
-        results = await asyncio.gather(*(send(*item) for item in messages[start:start + limit]), return_exceptions=True)
-        for result in results:
-            if isinstance(result, Exception):
-                logger.error("Notification failed: %s", result)
+async def _send_batch(ntfy: Ntfy, messages: list[tuple[str, str, str, str, str | None]]) -> None:
+    for item in messages:
+        logger.info("Sending notification to ntfy topic %s", item[0])
+        try:
+            await ntfy.publish_to(*item)
+        except Exception as exc:
+            logger.error("Notification to ntfy topic %s failed: %s", item[0], exc)
 
 
 async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -> int:
@@ -218,7 +213,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                     logger.info("%s", text)
             messages = merge_supervisor_messages(messages, cfg.supervisor_topic)
             if cfg.send_text and messages:
-                await _send_batch(ntfy, messages, cfg.max_notifications_per_batch)
+                await _send_batch(ntfy, messages)
 
     poll_task = asyncio.create_task(poll_loop())
     announce_task = asyncio.create_task(announce_loop())
