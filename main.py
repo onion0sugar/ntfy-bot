@@ -99,15 +99,16 @@ def _order_references(message: str) -> list[str]:
     references: list[str] = []
     for paragraph in message.split("\n\n"):
         lines = [line.strip() for line in paragraph.splitlines() if line.strip()]
-        grouped_orders = [
-            line.split(" (grupa:", 1)[0]
-            for line in lines
-            if " (grupa:" in line
-        ]
-        if grouped_orders:
-            references.extend(grouped_orders)
-        elif lines:
-            references.append(lines[0])
+        order_lines = [line for line in lines if " (grupa:" in line] or lines[:1]
+        for line in order_lines:
+            order_number, separator, group = line.partition(" (grupa: ")
+            if order_number.startswith("ZP "):
+                order_number = order_number[3:]
+            if separator:
+                group_number = group.removesuffix(")")
+                references.append(f"{order_number} ({group_number})")
+            else:
+                references.append(order_number)
     return references
 
 
@@ -115,8 +116,7 @@ async def _send_batch(ntfy: Ntfy, messages: list[tuple[str, str, str, str, str |
     for item in messages:
         try:
             order_references = ", ".join(_order_references(item[1]))
-            log_context = f"ZP: {order_references}" if order_references else None
-            await ntfy.publish_to(*item, log_context=log_context)
+            await ntfy.publish_to(*item, log_context=order_references or None)
         except Exception as exc:
             logger.error("Notification to ntfy topic %s failed: %s", item[0], exc)
 
@@ -350,7 +350,7 @@ def main() -> int:
         help="wyślij testowe powiadomienie: TOPIC PRIORITY (np. moj-topic max)",
     )
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     try:
         cfg = load_config()
     except ConfigError as exc:

@@ -92,7 +92,7 @@ def test_supervisor_receives_new_and_ready_orders_in_one_notification():
 def test_order_references_include_each_order_in_combined_messages():
     assert main._order_references(
         "ZP READY/1\nuser (2)\n\nZP NEW/2 (grupa: 1)\nZP NEW/3 (grupa: 2)"
-    ) == ["ZP READY/1", "ZP NEW/2", "ZP NEW/3"]
+    ) == ["READY/1", "NEW/2 (1)", "NEW/3 (2)"]
 
 
 def test_send_batch_publishes_notifications_sequentially(caplog):
@@ -122,7 +122,7 @@ def test_send_batch_publishes_notifications_sequentially(caplog):
 
     assert sent == messages
     assert max_active == 1
-    assert log_contexts == ["ZP: ZP-1", "ZP: ZP-2", "ZP: ZP-3"]
+    assert log_contexts == ["ZP-1 (1)", "ZP-2 (2)", "ZP-3"]
     assert not any(
         record.getMessage().startswith("Sending notification to ntfy topic ")
         for record in caplog.records
