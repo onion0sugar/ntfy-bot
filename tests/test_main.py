@@ -89,31 +89,40 @@ def test_supervisor_receives_new_and_ready_orders_in_one_notification():
     ]
 
 
+def test_order_references_include_each_order_in_combined_messages():
+    assert main._order_references(
+        "ZP READY/1\nuser (2)\n\nZP NEW/2 (grupa: 1)\nZP NEW/3 (grupa: 2)"
+    ) == ["ZP READY/1", "ZP NEW/2", "ZP NEW/3"]
+
+
 def test_send_batch_publishes_notifications_sequentially(caplog):
     caplog.set_level(logging.INFO, logger="bot")
     sent = []
+    log_contexts = []
     active = 0
     max_active = 0
 
     class FakeNtfy:
-        async def publish_to(self, *message):
+        async def publish_to(self, *message, log_context=None):
             nonlocal active, max_active
             active += 1
             max_active = max(max_active, active)
             await asyncio.sleep(0)
             sent.append(message)
+            log_contexts.append(log_context)
             active -= 1
 
     messages = [
-        ("user1", "first", "title", "high", None),
-        ("user2", "second", "title", "high", None),
-        ("user3", "third", "title", "high", None),
+        ("user1", "ZP-1 (grupa: 1)", "title", "high", None),
+        ("user2", "ZP-2 (grupa: 2)", "title", "high", None),
+        ("user3", "ZP-3", "title", "high", None),
     ]
 
     asyncio.run(main._send_batch(FakeNtfy(), messages))
 
     assert sent == messages
     assert max_active == 1
+    assert log_contexts == ["ZP: ZP-1", "ZP: ZP-2", "ZP: ZP-3"]
     assert not any(
         record.getMessage().startswith("Sending notification to ntfy topic ")
         for record in caplog.records

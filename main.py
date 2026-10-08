@@ -95,10 +95,28 @@ async def _sleep_until(stop: asyncio.Event, seconds: float) -> None:
         pass
 
 
+def _order_references(message: str) -> list[str]:
+    references: list[str] = []
+    for paragraph in message.split("\n\n"):
+        lines = [line.strip() for line in paragraph.splitlines() if line.strip()]
+        grouped_orders = [
+            line.split(" (grupa:", 1)[0]
+            for line in lines
+            if " (grupa:" in line
+        ]
+        if grouped_orders:
+            references.extend(grouped_orders)
+        elif lines:
+            references.append(lines[0])
+    return references
+
+
 async def _send_batch(ntfy: Ntfy, messages: list[tuple[str, str, str, str, str | None]]) -> None:
     for item in messages:
         try:
-            await ntfy.publish_to(*item)
+            order_references = ", ".join(_order_references(item[1]))
+            log_context = f"ZP: {order_references}" if order_references else None
+            await ntfy.publish_to(*item, log_context=log_context)
         except Exception as exc:
             logger.error("Notification to ntfy topic %s failed: %s", item[0], exc)
 
@@ -208,12 +226,6 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                     latest_orders, users, latest_work_today, latest_busy, cfg.supervisor_topic
                 )
                 messages.extend(order_messages)
-                order_summary = next(
-                    (text for topic, text, _title, _priority, _click_url in order_messages if topic == cfg.supervisor_topic),
-                    None,
-                )
-                if order_summary:
-                    logger.info("Nowe zamówienia: %s", order_summary)
             messages = merge_supervisor_messages(messages, cfg.supervisor_topic)
             if cfg.send_text and messages:
                 await _send_batch(ntfy, messages)
