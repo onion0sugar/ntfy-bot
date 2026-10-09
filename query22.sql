@@ -19,9 +19,10 @@ SELECT DD.Id,
                FROM [SerwisKop_Magazyn].[Document].[Documents] DD2 WITH (NOLOCK)
                WHERE DD2.OriginalNumber = DD.OriginalNumber
                  AND DD2.DocumentType = 7
+                 AND (DD2.DocumentStatusText IS NULL OR DD2.DocumentStatusText <> 'end')
            ) THEN 1
            ELSE 0
-       END AS NoType7SameNumber
+       END AS NoUnfinishedType7SameNumber
 FROM [SerwisKop_Magazyn].[Document].[Documents] DD WITH (NOLOCK)
 OUTER APPLY (
     SELECT TOP (1) ZGZ.ZoneGroupId
