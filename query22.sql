@@ -12,7 +12,16 @@ SELECT DD.Id,
        COALESCE(CU.UserName, CONVERT(nvarchar(255), DD.ModifiedBy)) AS UserName,
        ISNULL(PA.IlePozycji, 0) AS IlePozycji,
        ZG.ZoneGroupId,
-       DL.ID AS ReadyTriggerId
+       DL.ID AS ReadyTriggerId,
+       CASE
+           WHEN NOT EXISTS (
+               SELECT 1
+               FROM [SerwisKop_Magazyn].[Document].[Documents] DD2 WITH (NOLOCK)
+               WHERE DD2.OriginalNumber = DD.OriginalNumber
+                 AND (DD2.DocumentType <> 22 OR DD2.DocumentType IS NULL)
+           ) THEN 1
+           ELSE 0
+       END AS AllSameNumberType22
 FROM [SerwisKop_Magazyn].[Document].[Documents] DD WITH (NOLOCK)
 OUTER APPLY (
     SELECT TOP (1) ZGZ.ZoneGroupId
