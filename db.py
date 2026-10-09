@@ -167,7 +167,7 @@ class CourierRow:
     user_name: str
     item_count: int
     zone_group_id: int | None
-    has_external_document: bool = False
+    ready_trigger_id: int | None = None
 
 
 def fetch_column_rows(cursor, query: str, required: tuple[str, ...], params: tuple[object, ...] = ()) -> list[dict[str, object]]:
@@ -230,7 +230,7 @@ def fetch_top_ready_user(cursor, query: str, original_number: str) -> list[tuple
 
 
 def fetch_courier_rows(cursor, query: str) -> list[CourierRow]:
-    rows = fetch_column_rows(cursor, query, ("id", "originalnumber", "documenttype", "courierid", "documentstatustext", "username", "ilepozycji", "zonegroupid", "externaldocumentid"))
+    rows = fetch_column_rows(cursor, query, ("id", "originalnumber", "documenttype", "courierid", "documentstatustext", "username", "ilepozycji", "zonegroupid", "readytriggerid"))
     result = []
     for row in rows:
         try:
@@ -245,5 +245,9 @@ def fetch_courier_rows(cursor, query: str) -> list[CourierRow]:
             zone_group_id = int(row["zonegroupid"]) if row["zonegroupid"] is not None else None
         except (TypeError, ValueError):
             zone_group_id = None
-        result.append(CourierRow(doc_id, str(row["originalnumber"] or "").strip(), str(row["documenttype"] or "").strip(), str(row["courierid"] or "").strip(), str(row["documentstatustext"] or "").strip().lower().replace(" ", "_"), str(row["username"] or "").strip(), item_count, zone_group_id, row["externaldocumentid"] is not None))
+        try:
+            ready_trigger_id = int(row["readytriggerid"]) if row["readytriggerid"] is not None else None
+        except (TypeError, ValueError):
+            ready_trigger_id = None
+        result.append(CourierRow(doc_id, str(row["originalnumber"] or "").strip(), str(row["documenttype"] or "").strip(), str(row["courierid"] or "").strip(), str(row["documentstatustext"] or "").strip().lower().replace(" ", "_"), str(row["username"] or "").strip(), item_count, zone_group_id, ready_trigger_id))
     return result

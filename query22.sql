@@ -12,7 +12,7 @@ SELECT DD.Id,
        COALESCE(CU.UserName, CONVERT(nvarchar(255), DD.ModifiedBy)) AS UserName,
        ISNULL(PA.IlePozycji, 0) AS IlePozycji,
        ZG.ZoneGroupId,
-       ED.ExternalDocumentId
+       DL.ID AS ReadyTriggerId
 FROM [SerwisKop_Magazyn].[Document].[Documents] DD WITH (NOLOCK)
 OUTER APPLY (
     SELECT TOP (1) ZGZ.ZoneGroupId
@@ -25,11 +25,13 @@ OUTER APPLY (
     ORDER BY DP.Id
 ) ZG
 OUTER APPLY (
-    SELECT TOP 1 *
-    FROM Document.DocumentExternalDocuments ED WITH (NOLOCK)
-    WHERE ED.DocumentId = DD.Id
-    ORDER BY ED.DocumentId DESC
-) ED
+    SELECT TOP 1 DL.id
+    FROM Document.DocumentLogs DL WITH (NOLOCK)
+    WHERE DL.DocumentId = DD.ZkDocumentId
+      AND DL.CreatedBy = 1
+      AND DL.Message LIKE '___Znaleziono dokument: %'
+    ORDER BY DL.Id DESC
+) DL
 LEFT JOIN PPP_Agg PA
        ON PA.DocumentId = DD.Id
 LEFT JOIN [SerwisKop_Magazyn].[Document].[CustomerOrderDocumentConfigurations] CONF WITH (NOLOCK)

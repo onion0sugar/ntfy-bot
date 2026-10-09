@@ -157,7 +157,7 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                     for row in courier_rows:
                         if row.doc_id is not None:
                             courier_changed(state, row.doc_id, row.courier_id, row.status, row.user_name)
-                        if row.document_type == "22" and (row.courier_id == str(cfg.courier_id) or row.has_external_document) and row.status in {"new", "in_progress"} and row.item_count == 0 and row.number:
+                        if row.document_type == "22" and (row.courier_id == str(cfg.courier_id) or row.ready_trigger_id is not None) and row.status in {"new", "in_progress"} and row.item_count == 0 and row.number:
                             top_users = fetch_top_ready_user(cursor, ready_users_query, row.number)
                             top_user = top_users[0] if top_users else None
                             ready_text = row.number
