@@ -168,7 +168,7 @@ class CourierRow:
     item_count: int
     zone_group_id: int | None
     ready_trigger_id: int | None = None
-    all_same_number_type22: bool = False
+    no_type7_same_number: bool = False
 
 
 def fetch_column_rows(cursor, query: str, required: tuple[str, ...], params: tuple[object, ...] = ()) -> list[dict[str, object]]:
@@ -231,7 +231,7 @@ def fetch_top_ready_user(cursor, query: str, original_number: str) -> list[tuple
 
 
 def fetch_courier_rows(cursor, query: str) -> list[CourierRow]:
-    rows = fetch_column_rows(cursor, query, ("id", "originalnumber", "documenttype", "courierid", "documentstatustext", "username", "ilepozycji", "zonegroupid", "readytriggerid", "allsamenumbertype22"))
+    rows = fetch_column_rows(cursor, query, ("id", "originalnumber", "documenttype", "courierid", "documentstatustext", "username", "ilepozycji", "zonegroupid", "readytriggerid", "notype7samenumber"))
     result = []
     for row in rows:
         try:
@@ -250,5 +250,5 @@ def fetch_courier_rows(cursor, query: str) -> list[CourierRow]:
             ready_trigger_id = int(row["readytriggerid"]) if row["readytriggerid"] is not None else None
         except (TypeError, ValueError):
             ready_trigger_id = None
-        result.append(CourierRow(doc_id, str(row["originalnumber"] or "").strip(), str(row["documenttype"] or "").strip(), str(row["courierid"] or "").strip(), str(row["documentstatustext"] or "").strip().lower().replace(" ", "_"), str(row["username"] or "").strip(), item_count, zone_group_id, ready_trigger_id, bool(row["allsamenumbertype22"])))
+        result.append(CourierRow(doc_id, str(row["originalnumber"] or "").strip(), str(row["documenttype"] or "").strip(), str(row["courierid"] or "").strip(), str(row["documentstatustext"] or "").strip().lower().replace(" ", "_"), str(row["username"] or "").strip(), item_count, zone_group_id, ready_trigger_id, bool(row["notype7samenumber"])))
     return result

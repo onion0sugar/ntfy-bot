@@ -178,17 +178,17 @@ def test_get_next_order_wraps_db_errors():
 
 
 @pytest.mark.parametrize(
-    ("ready_trigger_id", "all_same_number_type22", "expected_trigger_id", "expected_type_match"),
+    ("ready_trigger_id", "no_type7_same_number", "expected_trigger_id", "expected_no_type7"),
     [(42, 1, 42, True), (None, 0, None, False)],
 )
-def test_fetch_courier_rows_tracks_ready_trigger_and_duplicate_type(
-    ready_trigger_id, all_same_number_type22, expected_trigger_id, expected_type_match
+def test_fetch_courier_rows_tracks_ready_trigger_and_type7_blocker(
+    ready_trigger_id, no_type7_same_number, expected_trigger_id, expected_no_type7
 ):
     class CourierCursor:
         description = [
             ("id",), ("originalnumber",), ("documenttype",), ("courierid",),
             ("documentstatustext",), ("username",), ("ilepozycji",),
-            ("zonegroupid",), ("readytriggerid",), ("allsamenumbertype22",),
+            ("zonegroupid",), ("readytriggerid",), ("notype7samenumber",),
         ]
 
         def execute(self, sql):
@@ -198,14 +198,14 @@ def test_fetch_courier_rows_tracks_ready_trigger_and_duplicate_type(
             return [
                 (
                     1, "ORDER-1", "22", "7", "new", "user", 0, None,
-                    ready_trigger_id, all_same_number_type22,
+                    ready_trigger_id, no_type7_same_number,
                 )
             ]
 
     rows = fetch_courier_rows(CourierCursor(), "SELECT ...")
 
     assert rows[0].ready_trigger_id == expected_trigger_id
-    assert rows[0].all_same_number_type22 is expected_type_match
+    assert rows[0].no_type7_same_number is expected_no_type7
 
 
 # --- connect_db -------------------------------------------------------------------
