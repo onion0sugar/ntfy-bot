@@ -1,7 +1,7 @@
 WITH PPP_Agg AS (
     SELECT DocumentId,
            COUNT(*) AS IlePozycji
-    FROM [SerwisKop_Magazyn].[Package].[PackagePositions]
+    FROM [SerwisKop_Magazyn].[Package].[PackagePositions] WITH (NOLOCK)
     GROUP BY DocumentId
 )
 SELECT DD.Id,
@@ -13,31 +13,30 @@ SELECT DD.Id,
        ISNULL(PA.IlePozycji, 0) AS IlePozycji,
        ZG.ZoneGroupId,
        ED.ExternalDocumentId
-FROM [SerwisKop_Magazyn].[Document].[Documents] DD
+FROM [SerwisKop_Magazyn].[Document].[Documents] DD WITH (NOLOCK)
 OUTER APPLY (
     SELECT TOP (1) ZGZ.ZoneGroupId
-    FROM [SerwisKop_Magazyn].[Document].[DocumentPositions] DP
-    LEFT JOIN [Stillage].[StillageSpaces] SS
+    FROM [SerwisKop_Magazyn].[Document].[DocumentPositions] DP WITH (NOLOCK)
+    LEFT JOIN [Stillage].[StillageSpaces] SS WITH (NOLOCK)
            ON DP.FromStillageSpaceId = SS.Id
-    LEFT JOIN [SerwisKop_Magazyn].[Zone].[ZoneGroupZones] ZGZ
+    LEFT JOIN [SerwisKop_Magazyn].[Zone].[ZoneGroupZones] ZGZ WITH (NOLOCK)
            ON SS.ZoneId = ZGZ.ZoneId
     WHERE DP.DocumentId = DD.Id
     ORDER BY DP.Id
 ) ZG
 OUTER APPLY (
     SELECT TOP 1 *
-    FROM Document.DocumentExternalDocuments ED
+    FROM Document.DocumentExternalDocuments ED WITH (NOLOCK)
     WHERE ED.DocumentId = DD.Id
     ORDER BY ED.DocumentId DESC
 ) ED
 LEFT JOIN PPP_Agg PA
        ON PA.DocumentId = DD.Id
-LEFT JOIN [SerwisKop_Magazyn].[Document].[CustomerOrderDocumentConfigurations] CONF
+LEFT JOIN [SerwisKop_Magazyn].[Document].[CustomerOrderDocumentConfigurations] CONF WITH (NOLOCK)
        ON CONF.Id = DD.CustomerOrderDocumentConfigurationId
-LEFT JOIN Core.Users CU
+LEFT JOIN Core.Users CU WITH (NOLOCK)
        ON CU.Id = DD.ModifiedBy
 WHERE DD.DateCreatedUtc >= DATEADD(DAY, -30, GETUTCDATE())
   AND DD.SubType = 50
   AND DD.DocumentType IN (7, 22)
   AND DD.DocumentStatusText IN ('new', 'in_progress');
-

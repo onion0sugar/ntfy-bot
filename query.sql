@@ -19,14 +19,14 @@
 SELECT DD.Id,
        DD.OriginalNumber,
        ZG.ZoneGroupId
-  FROM [SerwisKop_Magazyn].[Document].[Documents] DD
+  FROM [SerwisKop_Magazyn].[Document].[Documents] DD WITH (NOLOCK)
   OUTER APPLY (
       SELECT TOP (1)
              ZGZ.ZoneGroupId
-        FROM [SerwisKop_Magazyn].[Document].[DocumentPositions] DP
-        LEFT JOIN [Stillage].[StillageSpaces] SS
+        FROM [SerwisKop_Magazyn].[Document].[DocumentPositions] DP WITH (NOLOCK)
+        LEFT JOIN [Stillage].[StillageSpaces] SS WITH (NOLOCK)
           ON DP.FromStillageSpaceId = SS.Id
-        LEFT JOIN [SerwisKop_Magazyn].[Zone].[ZoneGroupZones] ZGZ
+        LEFT JOIN [SerwisKop_Magazyn].[Zone].[ZoneGroupZones] ZGZ WITH (NOLOCK)
           ON SS.ZoneId = ZGZ.ZoneId
        WHERE DP.DocumentId = DD.Id
        ORDER BY DP.Id
