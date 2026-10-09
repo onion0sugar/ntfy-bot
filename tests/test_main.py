@@ -62,7 +62,9 @@ def test_user_receives_only_highest_eligible_zone_group():
     )
 
     user_texts = [text for topic, text, *_ in messages if topic == "grupa3"]
-    assert user_texts == ["GRUPA-3 (grupa: 3)"]
+    assert user_texts == ["GRUPA-3"]
+    supervisor_texts = [text for topic, text, *_ in messages if topic == "supervisor"]
+    assert supervisor_texts == ["GRUPA-1 (grupa: 1)\nGRUPA-3 (grupa: 3)"]
 
 
 def test_supervisor_receives_all_new_orders_in_one_notification():

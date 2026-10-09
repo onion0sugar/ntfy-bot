@@ -64,10 +64,9 @@ def build_new_order_messages(
         )
         if eligible_order is None:
             continue
-        order_id, order_number, zone_group_id = eligible_order
+        order_id, order_number, _zone_group_id = eligible_order
         click_url = ORDER_URL.format(order_id) if order_id is not None else None
-        displayed_number = f"{order_number} (grupa: {zone_group_id})"
-        text = DEFAULT_NEW_TEXT.format(displayed_number)
+        text = DEFAULT_NEW_TEXT.format(order_number)
         messages.append((login, text, "Nowe zamówienie", "high", click_url))
     return messages
 
