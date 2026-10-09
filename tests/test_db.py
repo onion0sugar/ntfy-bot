@@ -186,7 +186,7 @@ def test_fetch_courier_rows_tracks_ready_trigger_and_type7_blocker(
 ):
     class CourierCursor:
         description = [
-            ("id",), ("originalnumber",), ("documenttype",), ("courierid",),
+            ("id",), ("contractorid",), ("originalnumber",), ("documenttype",), ("courierid",),
             ("documentstatustext",), ("username",), ("ilepozycji",),
             ("zonegroupid",), ("readytriggerid",), ("nounfinishedtype7samenumber",),
         ]
@@ -197,7 +197,7 @@ def test_fetch_courier_rows_tracks_ready_trigger_and_type7_blocker(
         def fetchall(self):
             return [
                 (
-                    1, "ORDER-1", "22", "7", "new", "user", 0, None,
+                    1, "CONTRACTOR-1", "ORDER-1", "22", "7", "new", "user", 0, None,
                     ready_trigger_id, no_unfinished_type7_same_number,
                 )
             ]
@@ -206,6 +206,7 @@ def test_fetch_courier_rows_tracks_ready_trigger_and_type7_blocker(
 
     assert rows[0].ready_trigger_id == expected_trigger_id
     assert rows[0].no_unfinished_type7_same_number is expected_no_unfinished_type7
+    assert rows[0].contractor_id == "CONTRACTOR-1"
 
 
 # --- connect_db -------------------------------------------------------------------

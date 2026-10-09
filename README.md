@@ -70,7 +70,9 @@ Supervisor powinien zasubskrybować topic wpisany w `SUPERVISOR_TOPIC`.
 
 Dostosuj zapytania `query22.sql` i `query22_users.sql` do swojej bazy. Pierwsze
  jest głównym źródłem dokumentów typu 7 i 22, a drugie wskazuje użytkownika
-odpowiedzialnego za spakowane pozycje.
+ odpowiedzialnego za spakowane pozycje. Dla kilku gotowych numerów tego samego
+ `ContractorId` pozycje pracowników są sumowane; gotowe powiadomienia trafiają
+ do pracownika z największą sumą.
 
 Skopiuj plik użytkowników i wpisz jeden login w każdej linii:
 

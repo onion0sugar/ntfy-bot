@@ -11,7 +11,7 @@ from collections import Counter
 from types import SimpleNamespace
 
 from config import ConfigError, load_config
-from db import COURIER_QUERY_FILE, READY_USERS_QUERY_FILE, WORK_TODAY_USERS_QUERY_FILE, DbError, connect_db, fetch_courier_rows, fetch_top_ready_user, fetch_work_today_users, load_query
+from db import COURIER_QUERY_FILE, READY_USERS_QUERY_FILE, WORK_TODAY_USERS_QUERY_FILE, CourierRow, DbError, connect_db, fetch_courier_rows, fetch_top_ready_user, fetch_work_today_users, load_query
 from ntfy import Ntfy, NtfyError
 from state import courier_changed, open_state
 from users import load_users
@@ -88,6 +88,26 @@ def merge_supervisor_messages(
     return remaining_messages
 
 
+def aggregate_ready_users(
+    users_by_number: list[tuple[str, int, int]],
+) -> list[tuple[str, int, int]]:
+    """Sum packaged positions per employee and retain their largest document."""
+    totals: dict[str, int] = {}
+    best_documents: dict[str, tuple[int, int]] = {}
+    for login, count, document_id in users_by_number:
+        totals[login] = totals.get(login, 0) + count
+        previous = best_documents.get(login)
+        if previous is None or (count, -document_id) > (previous[0], -previous[1]):
+            best_documents[login] = (count, document_id)
+    return sorted(
+        (
+            (login, count, best_documents[login][1])
+            for login, count in totals.items()
+        ),
+        key=lambda user: (-user[1], user[0]),
+    )
+
+
 async def _sleep_until(stop: asyncio.Event, seconds: float) -> None:
     try:
         await asyncio.wait_for(stop.wait(), timeout=seconds)
@@ -154,20 +174,49 @@ async def run_service(cfg: SimpleNamespace, stop: asyncio.Event | None = None) -
                     latest_work_today = fetch_work_today_users(cursor, work_today_users_query, users)
                     ready_messages: list[tuple[str, str, str, str, str | None]] = []
                     ready_users: set[str] = set()
-                    for row in courier_rows:
-                        if row.doc_id is not None:
-                            courier_changed(state, row.doc_id, row.courier_id, row.status, row.user_name)
-                        if row.document_type == "22" and row.no_unfinished_type7_same_number and (row.courier_id == str(cfg.courier_id) or row.ready_trigger_id is not None) and row.status in {"new", "in_progress"} and row.item_count == 0 and row.number:
-                            top_users = fetch_top_ready_user(cursor, ready_users_query, row.number)
-                            top_user = top_users[0] if top_users else None
+                    ready_rows = [
+                        row for row in courier_rows
+                        if row.document_type == "22"
+                        and row.no_unfinished_type7_same_number
+                        and (row.courier_id == str(cfg.courier_id) or row.ready_trigger_id is not None)
+                        and row.status in {"new", "in_progress"}
+                        and row.item_count == 0
+                        and row.number
+                    ]
+                    contractor_ready_rows: dict[tuple[str, str], list[CourierRow]] = {}
+                    for row in ready_rows:
+                        group = ("contractor", row.contractor_id) if row.contractor_id else ("number", row.number)
+                        contractor_ready_rows.setdefault(group, []).append(row)
+
+                    for rows in contractor_ready_rows.values():
+                        user_rows_by_number = {
+                            number: fetch_top_ready_user(cursor, ready_users_query, number)
+                            for number in dict.fromkeys(row.number for row in rows)
+                        }
+                        users_by_number = [
+                            user
+                            for number_users in user_rows_by_number.values()
+                            for user in number_users
+                        ]
+                        top_users = aggregate_ready_users(users_by_number)
+                        top_user = top_users[0] if top_users else None
+                        for row in rows:
                             ready_text = row.number
-                            click_url = ORDER_URL.format(top_user[2]) if top_user else None
+                            row_top_user = next(
+                                (user for user in user_rows_by_number[row.number] if user[0] == top_user[0]),
+                                top_user,
+                            ) if top_user else None
+                            click_url = ORDER_URL.format(row_top_user[2]) if row_top_user else None
                             if top_user:
                                 ready_users.add(top_user[0])
                                 ready_text += "\n" + "\n".join(f"{login} ({count})" for login, count, _document_id in top_users)
                                 if top_user[0] in users:
                                     ready_messages.append((top_user[0], ready_text, "Gotowe do wydania", "max", click_url))
                             ready_messages.append((cfg.supervisor_topic, ready_text, "Gotowe do wydania", "max", click_url))
+
+                    for row in courier_rows:
+                        if row.doc_id is not None:
+                            courier_changed(state, row.doc_id, row.courier_id, row.status, row.user_name)
                     latest_orders = sorted(
                         [(row.doc_id, row.number, row.zone_group_id) for row in courier_rows if row.document_type == "7" and row.status == "new" and row.number],
                         key=lambda order: (order[0] is None, order[0] if order[0] is not None else 0, order[1]),

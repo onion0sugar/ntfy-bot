@@ -5,6 +5,7 @@ WITH PPP_Agg AS (
     GROUP BY DocumentId
 )
 SELECT DD.Id,
+       DD.ContractorId,
        DD.OriginalNumber,
        DD.DocumentType,
        CONF.CourierId,

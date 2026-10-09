@@ -3,7 +3,20 @@ import logging
 from types import SimpleNamespace
 
 import main
-from main import build_new_order_messages, merge_supervisor_messages
+from main import aggregate_ready_users, build_new_order_messages, merge_supervisor_messages
+
+
+def test_ready_users_are_ranked_by_total_positions_across_original_numbers():
+    users = aggregate_ready_users(
+        [
+            ("user-a", 8, 101),
+            ("user-b", 5, 201),
+            ("user-a", 4, 102),
+            ("user-b", 9, 202),
+        ]
+    )
+
+    assert users == [("user-b", 14, 202), ("user-a", 12, 101)]
 
 
 def test_new_orders_are_split_by_zone_group():
