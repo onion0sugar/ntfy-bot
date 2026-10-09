@@ -11,7 +11,7 @@ import pytest
 
 import db
 from config import load_config
-from db import DbError, build_dsn, get_next_order, load_query
+from db import DbError, build_dsn, fetch_courier_rows, get_next_order, load_query
 
 
 class FakeCursor:
@@ -175,6 +175,26 @@ def test_get_next_order_wraps_db_errors():
 
     with pytest.raises(DbError, match="Query failed"):
         get_next_order(BoomCursor(), "SELECT 1")
+
+
+@pytest.mark.parametrize(("external_document_id", "expected"), [(42, True), (None, False)])
+def test_fetch_courier_rows_tracks_external_document_presence(external_document_id, expected):
+    class CourierCursor:
+        description = [
+            ("id",), ("originalnumber",), ("documenttype",), ("courierid",),
+            ("documentstatustext",), ("username",), ("ilepozycji",),
+            ("zonegroupid",), ("externaldocumentid",),
+        ]
+
+        def execute(self, sql):
+            self.sql = sql
+
+        def fetchall(self):
+            return [(1, "ORDER-1", "22", "7", "new", "user", 0, None, external_document_id)]
+
+    rows = fetch_courier_rows(CourierCursor(), "SELECT ...")
+
+    assert rows[0].has_external_document is expected
 
 
 # --- connect_db -------------------------------------------------------------------
